@@ -19,7 +19,7 @@
   </scm>
 	<properties>
 		<java.version>11</java.version>
-		<awspring.version>2.3.2</awspring.version>
+		<awspring.version>3.0.1</awspring.version>
 	</properties>
 
 	<dependencyManagement>
