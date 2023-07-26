@@ -1,4 +1,4 @@
-package it.pagopa.pn.template.rest;
+package it.pagopa.pn.pecmock.rest;
 
 import it.pagopa.pn.template.rest.v1.api.TemplateSampleApi;
 import lombok.extern.slf4j.Slf4j;
