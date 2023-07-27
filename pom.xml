@@ -18,21 +18,10 @@
 	  <tag>HEAD</tag>
   </scm>
 	<properties>
-		<java.version>11</java.version>
-		<awspring.version>2.3.2</awspring.version>
+		<java.version>17</java.version>
+		<cxf.version>3.6.1</cxf.version>
+		<openapi-generator-version>5.4.0</openapi-generator-version>
 	</properties>
-
-	<dependencyManagement>
-		<dependencies>
-			<dependency>
-				<groupId>io.awspring.cloud</groupId>
-				<artifactId>spring-cloud-aws-dependencies</artifactId>
-				<version>${awspring.version}</version>
-				<type>pom</type>
-				<scope>import</scope>
-			</dependency>
-		</dependencies>
-	</dependencyManagement>
 
 	<dependencies>
 
@@ -43,18 +32,53 @@
 		</dependency>
 
 		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- MAIL DEPENDENCIES-->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.cxf</groupId>
+			<artifactId>cxf-spring-boot-starter-jaxws</artifactId>
+			<version>${cxf.version}</version>
+		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/jakarta.servlet/jakarta.servlet-api -->
+		<dependency>
+			<groupId>jakarta.servlet</groupId>
+			<artifactId>jakarta.servlet-api</artifactId>
+			<version>6.0.0</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web-services</artifactId>
+		</dependency>
+
+		<dependency>
 			<groupId>io.swagger</groupId>
 			<artifactId>swagger-annotations</artifactId>
 			<version>1.6.5</version>
 		</dependency>
-
 
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
 			<scope>provided</scope>
 		</dependency>
-		
+
 		<dependency>
 			<groupId>net.logstash.logback</groupId>
 			<artifactId>logstash-logback-encoder</artifactId>
@@ -64,37 +88,6 @@
 			<groupId>io.projectreactor</groupId>
 			<artifactId>reactor-test</artifactId>
 			<scope>test</scope>
-		</dependency>
-
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-
-		<!-- Start SOAP dependencies -->
-		<dependency>
-			<groupId>jakarta.xml.bind</groupId>
-			<artifactId>jakarta.xml.bind-api</artifactId>
-			<version>4.0.0</version>
-		</dependency>
-
-		<dependency>
-			<groupId>jakarta.jws</groupId>
-			<artifactId>jakarta.jws-api</artifactId>
-			<version>3.0.0</version>
-		</dependency>
-
-		<dependency>
-			<groupId>jakarta.xml.ws</groupId>
-			<artifactId>jakarta.xml.ws-api</artifactId>
-			<version>4.0.0</version>
-		</dependency>
-
-		<dependency>
-			<groupId>jakarta.xml.soap</groupId>
-			<artifactId>jakarta.xml.soap-api</artifactId>
-			<version>3.0.0</version>
 		</dependency>
 
 		<dependency>
@@ -111,10 +104,18 @@
 		</dependency>
 
 		<dependency>
-			<groupId>com.sun.xml.ws</groupId>
-			<artifactId>jaxws-rt</artifactId>
-			<version>4.0.1</version>
+			<groupId>wsdl4j</groupId>
+			<artifactId>wsdl4j</artifactId>
 		</dependency>
+		<!-- End SOAP dependencies -->
+
+		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-email -->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-email</artifactId>
+			<version>1.5</version>
+		</dependency>
+
 
 	</dependencies>
 
@@ -134,47 +135,48 @@
 					</excludes>
 				</configuration>
 			</plugin>
-			<plugin>
-				<groupId>org.openapitools</groupId>
-				<artifactId>openapi-generator-maven-plugin</artifactId>
-				<version>5.4.0</version>
-				<executions>					
-					<execution>
-						<id>generate-mandate-server</id>
-						<goals>
-							<goal>generate</goal>
-						</goals>
-						<phase>process-resources</phase>
-						<configuration>
-							<inputSpec>${project.basedir}/docs/openapi/pn-template.yaml</inputSpec>
-							<generatorName>spring</generatorName>
-              				<library>spring-boot</library>
-							<generateApiDocumentation>false</generateApiDocumentation>
-							<generateApiTests>false</generateApiTests>
-							<generateModelTests>false</generateModelTests>
-							<configOptions>
-							<dateLibrary>java11</dateLibrary>
-							<delegatePattern>true</delegatePattern>
-							<interfaceOnly>true</interfaceOnly>
-							<annotationLibrary>none</annotationLibrary>
-							<documentationProvider>source</documentationProvider>
-							<openApiNullable>false</openApiNullable>
-							<reactive>true</reactive>
-							<skipDefaultInterface>false</skipDefaultInterface>
-							<useTags>true</useTags>
-							<basePackage>${project.groupId}.template.rest.v1</basePackage>
-							<modelPackage>${project.groupId}.template.rest.v1.dto</modelPackage>
-							<apiPackage>${project.groupId}.template.rest.v1.api</apiPackage>
-							<configPackage>${project.groupId}.template.rest.v1.config</configPackage>
-							</configOptions>				
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
+<!--			<plugin>-->
+<!--				<groupId>org.openapitools</groupId>-->
+<!--				<artifactId>openapi-generator-maven-plugin</artifactId>-->
+<!--				<version>5.4.0</version>-->
+<!--				<executions>					-->
+<!--					<execution>-->
+<!--						<id>generate-mandate-server</id>-->
+<!--						<goals>-->
+<!--							<goal>generate</goal>-->
+<!--						</goals>-->
+<!--						<phase>process-resources</phase>-->
+<!--						<configuration>-->
+<!--							<inputSpec>${project.basedir}/docs/openapi/pn-template.yaml</inputSpec>-->
+<!--							<generatorName>spring</generatorName>-->
+<!--              				<library>spring-boot</library>-->
+<!--							<generateApiDocumentation>false</generateApiDocumentation>-->
+<!--							<generateApiTests>false</generateApiTests>-->
+<!--							<generateModelTests>false</generateModelTests>-->
+<!--							<configOptions>-->
+<!--							<dateLibrary>java17</dateLibrary>-->
+<!--							<delegatePattern>true</delegatePattern>-->
+<!--							<interfaceOnly>true</interfaceOnly>-->
+<!--							<annotationLibrary>none</annotationLibrary>-->
+<!--							<documentationProvider>source</documentationProvider>-->
+<!--							<openApiNullable>false</openApiNullable>-->
+<!--							<reactive>true</reactive>-->
+<!--							<skipDefaultInterface>false</skipDefaultInterface>-->
+<!--							<useTags>true</useTags>-->
+<!--							<basePackage>${project.groupId}.template.rest.v1</basePackage>-->
+<!--							<modelPackage>${project.groupId}.template.rest.v1.dto</modelPackage>-->
+<!--							<apiPackage>${project.groupId}.template.rest.v1.api</apiPackage>-->
+<!--							<configPackage>${project.groupId}.template.rest.v1.config</configPackage>-->
+<!--							<useJakartaEe>true</useJakartaEe>-->
+<!--							</configOptions>				-->
+<!--						</configuration>-->
+<!--					</execution>-->
+<!--				</executions>-->
+<!--			</plugin>-->
 			<plugin>
 				<groupId>org.apache.cxf</groupId>
 				<artifactId>cxf-codegen-plugin</artifactId>
-				<version>4.0.0</version>
+				<version>${cxf.version}</version>
 				<executions>
 					<execution>
 						<id>generate-sources</id>
