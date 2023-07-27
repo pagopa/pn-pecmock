@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.cxf.jaxws.ServerAsyncResponse;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+
 import javax.mail.internet.MimeMessage;
 import javax.xml.ws.AsyncHandler;
 import javax.xml.ws.Response;
@@ -57,27 +58,50 @@ public class ArubaService implements PecImapBridge {
 
     @Override
     public Response<GetMessagesResponse> getMessagesAsync(GetMessages parameters) {
-        return null;
+        ServerAsyncResponse<GetMessagesResponse> serverAsyncResponse = new ServerAsyncResponse<>();
+        serverAsyncResponse.set(getMessages(parameters));
+        return serverAsyncResponse;
     }
 
     @Override
     public Future<?> getMessagesAsync(GetMessages parameters, AsyncHandler<GetMessagesResponse> asyncHandler) {
-        return null;
+        log.debug(INVOKING_OPERATION, GET_MESSAGES_ASYNC, parameters);
+        return Mono.fromCallable(() -> getMessagesAsync(parameters))
+                .doOnError(throwable -> log.error(throwable.getMessage()))
+                .doOnNext(asyncHandler::handleResponse)
+                .doOnSuccess(result->log.info(SUCCESSFUL_OPERATION_ON, GET_MESSAGES_ASYNC, result))
+                .toFuture();
     }
 
     @Override
     public GetMessagesResponse getMessages(GetMessages parameters) {
-        return null;
+        log.debug(INVOKING_OPERATION, GET_MESSAGES, parameters);
+        int mapSize = pecMap.size();
+        int limit = Math.min(parameters.getLimit() == null ? mapSize : parameters.getLimit(), mapSize);
+        GetMessagesResponse getMessagesResponse = new GetMessagesResponse();
+        MesArrayOfMessages mesArrayOfMessages = new MesArrayOfMessages();
+        for (int i = 0; i < limit; i++) {
+            //Controlli sulle PEC salvate in memoria
+            //Restituiamo un preset di ACCETTAZIONE o CONSEGNA a seconda del destinatario
+            mesArrayOfMessages.getItem().add(new byte[10]);
+        }
+        getMessagesResponse.setArrayOfMessages(mesArrayOfMessages);
+        log.info(SUCCESSFUL_OPERATION_ON, GET_MESSAGES, getMessagesResponse);
+        return getMessagesResponse;
     }
 
     @Override
     public Response<GetMessageIDResponse> getMessageIDAsync(GetMessageID parameters) {
-        return null;
+        ServerAsyncResponse<GetMessageIDResponse> serverAsyncResponse = new ServerAsyncResponse<>();
+        serverAsyncResponse.set(getMessageID(parameters));
+        return serverAsyncResponse;
     }
 
     @Override
     public Future<?> getMessageIDAsync(GetMessageID parameters, AsyncHandler<GetMessageIDResponse> asyncHandler) {
-        return null;
+        return Mono.fromCallable(() -> getMessageIDAsync(parameters))
+                .doOnNext(asyncHandler::handleResponse)
+                .toFuture();
     }
 
     @Override

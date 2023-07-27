@@ -6,6 +6,7 @@ public class LogUtils {
     public static String SUCCESSFUL_OPERATION_ON = "Successful operation on {} - {} = {}";
     public static String SEND_MAIL = "sendMail()";
     public static String GET_MESSAGES = "getMessages()";
+    public static String GET_MESSAGES_ASYNC = "getMessagesAsync()";
     public static String GET_MESSAGE_ID = "getMessageID()";
 
 }
