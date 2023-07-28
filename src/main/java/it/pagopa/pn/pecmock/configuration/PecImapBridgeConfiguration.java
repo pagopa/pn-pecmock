@@ -1,7 +1,7 @@
 package it.pagopa.pn.pecmock.configuration;
 
 
-import it.pagopa.pn.pecmock.service.ArubaService;
+import it.pagopa.pn.pecmock.service.PecImapBridgeService;
 import org.apache.cxf.Bus;
 import org.apache.cxf.jaxws.EndpointImpl;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,9 +18,9 @@ public class PecImapBridgeConfiguration {
     private Bus bus;
 
     @Bean
-    public Endpoint endpoint(ArubaService arubaService) {
-        EndpointImpl endpoint = new EndpointImpl(bus, arubaService);
-        endpoint.publish("/aruba");
+    public Endpoint endpoint(PecImapBridgeService pecImapBridgeService) {
+        EndpointImpl endpoint = new EndpointImpl(bus, pecImapBridgeService);
+        endpoint.publish("/pec");
         return endpoint;
     }
 

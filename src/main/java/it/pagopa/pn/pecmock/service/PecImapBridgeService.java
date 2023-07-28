@@ -20,7 +20,7 @@ import static it.pagopa.pn.pecmock.utils.LogUtils.*;
 
 @Service
 @Slf4j
-public class ArubaService implements PecImapBridge {
+public class PecImapBridgeService implements PecImapBridge {
 
     private final Map<String, String> pecMap = new HashMap<>();
 
@@ -52,7 +52,7 @@ public class ArubaService implements PecImapBridge {
             throw new RuntimeException(e);
         }
         SendMailResponse sendMailResponse = new SendMailResponse();
-        log.info(SUCCESSFUL_OPERATION_ON, SEND_MAIL, sendMailResponse);
+        log.info(SUCCESSFUL_OPERATION, SEND_MAIL, sendMailResponse);
         return sendMailResponse;
     }
 
@@ -69,7 +69,7 @@ public class ArubaService implements PecImapBridge {
         return Mono.fromCallable(() -> getMessagesAsync(parameters))
                 .doOnError(throwable -> log.error(throwable.getMessage()))
                 .doOnNext(asyncHandler::handleResponse)
-                .doOnSuccess(result->log.info(SUCCESSFUL_OPERATION_ON, GET_MESSAGES_ASYNC, result))
+                .doOnSuccess(result -> log.info(SUCCESSFUL_OPERATION, GET_MESSAGES_ASYNC, result))
                 .toFuture();
     }
 
@@ -86,7 +86,7 @@ public class ArubaService implements PecImapBridge {
             mesArrayOfMessages.getItem().add(new byte[10]);
         }
         getMessagesResponse.setArrayOfMessages(mesArrayOfMessages);
-        log.info(SUCCESSFUL_OPERATION_ON, GET_MESSAGES, getMessagesResponse);
+        log.info(SUCCESSFUL_OPERATION, GET_MESSAGES, getMessagesResponse);
         return getMessagesResponse;
     }
 
@@ -111,7 +111,7 @@ public class ArubaService implements PecImapBridge {
         String receiverAddress = pecMap.remove(messageID);
         log.debug("Removed messageID '{}' associated to receiverAddress '{}'", messageID, receiverAddress);
         GetMessageIDResponse getMessageIDResponse = new GetMessageIDResponse();
-        log.debug(SUCCESSFUL_OPERATION_ON, SEND_MAIL, getMessageIDResponse);
+        log.debug(SUCCESSFUL_OPERATION, SEND_MAIL, getMessageIDResponse);
         return getMessageIDResponse;
     }
 }
