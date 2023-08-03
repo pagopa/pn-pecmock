@@ -10,11 +10,9 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class PecInfo {
 
+    String messageId;
     String receiverAddress;
-
-    public PecInfo receiverAddress(String receiverAddress) {
-        this.receiverAddress = receiverAddress;
-        return this;
-    }
-
+    String subject;
+    String from;
+    String replyTo;
 }
