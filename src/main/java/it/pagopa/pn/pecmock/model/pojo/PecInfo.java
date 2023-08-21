@@ -15,4 +15,29 @@ public class PecInfo {
     String subject;
     String from;
     String replyTo;
+
+    public PecInfo messageId(String messageId) {
+        this.messageId = messageId;
+        return this;
+    }
+
+    public PecInfo receiverAddress(String receiverAddress) {
+        this.receiverAddress = receiverAddress;
+        return this;
+    }
+
+    public PecInfo subject(String subject) {
+        this.subject = subject;
+        return this;
+    }
+
+    public PecInfo from(String from) {
+        this.from = from;
+        return this;
+    }
+
+    public PecInfo replyTo(String replyTo) {
+        this.replyTo = replyTo;
+        return this;
+    }
 }

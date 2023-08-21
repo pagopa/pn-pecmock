@@ -17,6 +17,7 @@ import javax.mail.internet.MimeMultipart;
 import javax.mail.util.ByteArrayDataSource;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -101,6 +102,22 @@ public class PecUtils {
 
         // Convert the bytes to a string using the Base64 encoding.
         return Base64.getEncoder().encodeToString(bytes);
+    }
+
+    public static ByteArrayOutputStream getMimeMessageOutputStream(EmailField emailField) {
+        var output = new ByteArrayOutputStream();
+        try {
+            getMimeMessage(emailField).writeTo(output);
+            return output;
+        } catch (IOException | MessagingException exception) {
+            log.error("getMimeMessageOutputStream() - {} - {}", exception, exception.getMessage());
+            throw new ComposeMimeMessageException();
+        }
+    }
+
+    public static byte[] getMimeMessageInBase64(EmailField emailField) {
+//        return Base64.getEncoder().encode(getMimeMessageOutputStream(emailField).toByteArray());
+        return getMimeMessageOutputStream(emailField).toByteArray();
     }
 
     public static StringBuffer generateDaticertAccettazione(String from, String receiver, String replyTo, String subject, String gestoreMittente, String data, String orario, String messageId){
