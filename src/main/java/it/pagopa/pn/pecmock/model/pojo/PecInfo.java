@@ -15,6 +15,7 @@ public class PecInfo {
     String subject;
     String from;
     String replyTo;
+    PecType pecType;
 
     public PecInfo messageId(String messageId) {
         this.messageId = messageId;
@@ -40,4 +41,10 @@ public class PecInfo {
         this.replyTo = replyTo;
         return this;
     }
+
+    public PecInfo pecType(PecType pecType) {
+        this.pecType = pecType;
+        return this;
+    }
+
 }

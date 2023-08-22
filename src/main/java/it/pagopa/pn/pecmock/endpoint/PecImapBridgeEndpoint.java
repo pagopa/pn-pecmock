@@ -6,6 +6,7 @@ import it.pagopa.pn.pecmock.exception.SemaphoreException;
 import it.pagopa.pn.pecmock.model.pojo.EmailAttachment;
 import it.pagopa.pn.pecmock.model.pojo.EmailField;
 import it.pagopa.pn.pecmock.model.pojo.PecInfo;
+import it.pagopa.pn.pecmock.model.pojo.PecType;
 import it.pagopa.pn.pecmock.utils.PecUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +32,7 @@ import static it.pagopa.pn.pecmock.utils.LogUtils.*;
 @Slf4j
 public class PecImapBridgeEndpoint {
     private static final String NAMESPACE_URI = "https://bridgews.pec.it/PecImapBridge/";
-    private final Map<String, byte[]> pecMapProcessedElements = new HashMap<>();
+    private final Map<String, PecInfo> pecMapProcessedElements = new HashMap<>();
     @Value("${mock.pec.semaphore}")
     private int mockPecSemaphore = 10;
     @Value("${mock.pec.minDelay}")
@@ -95,75 +96,12 @@ public class PecImapBridgeEndpoint {
 
                         return sendMailResponseError;
                     }
-                    String timeStampData = new SimpleDateFormat("dd/MM/yyyy").format(Calendar.getInstance().getTime());
-                    String timeStampOrario = new SimpleDateFormat("HH:mm:ss").format(Calendar.getInstance().getTime());
 
-                    StringBuffer daticertAccettazione = PecUtils.generateDaticertAccettazione(from, receiverAddress, replyTo, subject,
-                            MOCK_PEC, timeStampData, timeStampOrario, messageID);
+                    PecInfo pecInfoAccettazione = new PecInfo().messageId(messageID).receiverAddress(receiverAddress).from(from).replyTo(replyTo).subject(subject).pecType(PecType.ACCETTAZIONE);
+                    PecInfo pecInfoConsegna = new PecInfo().messageId(messageID).receiverAddress(receiverAddress).from(from).replyTo(replyTo).subject(subject).pecType(PecType.CONSEGNA);
 
-                    StringBuffer daticertConsegna = PecUtils.generateDaticertConsegna(from, receiverAddress, replyTo, subject,
-                            MOCK_PEC, timeStampData, timeStampOrario, messageID);
-
-                    StringBuffer ricevutaAccettazione = PecUtils.generateRicevutaAccettazione(timeStampData, timeStampOrario, subject, from, receiverAddress);
-                    StringBuffer ricevutaConsegna = PecUtils.generateRicevutaConsegna(timeStampData, timeStampOrario, subject, from, receiverAddress);
-
-                    ByteArrayOutputStream byteArrayOutputStreamAccettazione = new ByteArrayOutputStream(daticertAccettazione.length());
-                    ByteArrayOutputStream byteArrayOutputStreamConsegna = new ByteArrayOutputStream(daticertConsegna.length());
-                    try {
-                        byteArrayOutputStreamAccettazione.write(daticertAccettazione.toString().getBytes());
-                        byteArrayOutputStreamConsegna.write(daticertConsegna.toString().getBytes());
-                    } catch (IOException ioException) {
-                        log.error("IOException: {} - {}", ioException, ioException.getMessage());
-                    }
-
-                    EmailAttachment emailAttachmentAccettazione = EmailAttachment.builder()
-                            .nameWithExtension("daticert.xml")
-                            .content(byteArrayOutputStreamAccettazione)//generare una stringa, da cui generare l'outputstram
-                            .build();
-
-                    List<EmailAttachment> listAttachmentsAccettazione = new ArrayList<>();
-                    listAttachmentsAccettazione.add(emailAttachmentAccettazione);
-
-                    EmailField emailFieldAccettazione = EmailField.builder()
-                            .subject("ACCETTAZIONE")
-                            .to(from)//mittende della mappa, se non c'è è da salvare
-                            .from("posta-certificata@pec.aruba.it")
-                            .contentType("multipart/mixed")
-                            .msgId(PecUtils.generateRandomString(64))//stringa random 64 caratteri
-                            .text(String.valueOf(ricevutaAccettazione))//ricomporre stringa "Ricevuta di accettazione del messaggio indirizzato"
-                            .emailAttachments(listAttachmentsAccettazione).build();
-
-                    byte[] mimeMessageAccetazione = PecUtils.getMimeMessageInBase64(emailFieldAccettazione);
-                    log.debug("---pecMapProcessedElements put Accettazione sendMail()---: {}", emailFieldAccettazione.getMsgId());
-                    pecMapProcessedElements.put(emailFieldAccettazione.getMsgId(), mimeMessageAccetazione);
-
-                    EmailAttachment emailAttachmentConsegna = EmailAttachment.builder()
-                            .nameWithExtension("daticert.xml")
-                            .content(byteArrayOutputStreamAccettazione)//generare una stringa, da cui generare l'outputstram
-                            .build();
-
-                    List<EmailAttachment> listAttachmentsConsegna = new ArrayList<>();
-                    listAttachmentsConsegna.add(emailAttachmentConsegna);
-
-                    EmailField emailFieldConsegna = EmailField.builder()
-                            .subject("ACCETTAZIONE")
-                            .to(from)//mittende della mappa, se non c'è è da salvare
-                            .from("posta-certificata@pec.aruba.it")
-                            .contentType("multipart/mixed")
-                            .msgId(PecUtils.generateRandomString(64))//stringa random 64 caratteri
-                            .text(String.valueOf(ricevutaConsegna))//ricomporre stringa "Ricevuta di accettazione del messaggio indirizzato"
-                            .emailAttachments(listAttachmentsConsegna).build();
-
-                    byte[] mimeMessageConsegna = PecUtils.getMimeMessageInBase64(emailFieldConsegna);
-                    log.debug("---pecMapProcessedElements put Consegna sendMail()---: {}", emailFieldConsegna.getMsgId());
-                    pecMapProcessedElements.put(emailFieldConsegna.getMsgId(), mimeMessageConsegna);
-
-                    log.debug("-----base 64 encoder : " + Base64.getEncoder().encodeToString(emailFieldAccettazione.toString().getBytes()));
-//            log.debug("-----base 64 encoder : " + Base64.getEncoder().encode(emailFieldAccettazione.toString().getBytes());
-//            mesArrayOfMessages.get().getItem().add((emailFieldConsegna.toString().getBytes()));//aggiungere emailfield con encode base64
-
-                    //aggiungere alla nuova mappa messageId(.msgId(PecUtils.generateRandomString(64)) delle 2 email geneerate, e il byte[]
-                    //pecMapProcessedElements.put(messageIdIterator, pecInfo);
+                    pecMapProcessedElements.put(PecUtils.generateRandomString(64), pecInfoAccettazione);
+                    pecMapProcessedElements.put(PecUtils.generateRandomString(64), pecInfoConsegna);
 
                     sendMailResponse.setErrcode(0);
                     sendMailResponse.setErrblock(0);
@@ -193,43 +131,43 @@ public class PecImapBridgeEndpoint {
         if (Objects.isNull(parameters.getLimit()) || parameters.getLimit() == 0) {
             getMessagesResponse.setErrcode(400);
             getMessagesResponse.setErrstr("Il valore deve essere diverso da 0 per il parametro Limit");
-            throw new RuntimeException("Il valore deve essere diverso da 0 per il parametro Limit");
+            return getMessagesResponse;
         }
         //TODO: se outtype diverso da 2, errore
         if (Objects.isNull(parameters.getOuttype()) || parameters.getOuttype() != 2) {
             getMessagesResponse.setErrcode(400);
             getMessagesResponse.setErrstr("E' accettato solo il valore 2 per il parametro Outtype");
-            throw new RuntimeException("E' accettato solo valore 2 per il parametro Outtype");
+            return getMessagesResponse;
         }
         //TODO: se unseen diverso da 1, errore
         if (Objects.isNull(parameters.getUnseen()) || parameters.getUnseen() != 1) {
             getMessagesResponse.setErrcode(400);
             getMessagesResponse.setErrstr("E' accettato solo il valore 1 per il parametro Unseen");
-            throw new RuntimeException("E' accettato solo valore 1 per il parametro Unseen");
+            return getMessagesResponse;
         }
         //TODO: se offset diverso da 0/valorizzato, errore
         if (Objects.nonNull(parameters.getOffset()) && parameters.getOffset() != 0) {
             getMessagesResponse.setErrcode(400);
             getMessagesResponse.setErrstr("E' accettato solo il valore 0 per il parametro Offset");
-            throw new RuntimeException("E' accettato solo valore 0 per il parametro Offset");
+            return getMessagesResponse;
         }
         //TODO: se msgType diverso da "ALL", errore
         if (Objects.nonNull(parameters.getMsgtype()) && !parameters.getMsgtype().equals("ALL")) {
             getMessagesResponse.setErrcode(400);
             getMessagesResponse.setErrstr("E' accettato solo il valore 'ALL' per il parametro Msgtype");
-            throw new RuntimeException("E' accettato solo valore 'ALL' per il parametro Msgtype");
+            return getMessagesResponse;
         }
         //TODO: se markseen uguale a "1", errore
         if (Objects.nonNull(parameters.getMarkseen()) && parameters.getMarkseen() == 1) {
             getMessagesResponse.setErrcode(400);
             getMessagesResponse.setErrstr("E' accettato solo il valore diverso da 1 per il parametro Markseen");
-            throw new RuntimeException("E' accettato solo valore diverso da 1 per il parametro Markseen");
+            return getMessagesResponse;
         }
         //TODO: se markseen uguale a "1", errore
         if (Objects.nonNull(parameters.getFolder()) && !parameters.getFolder().equals("INBOX")) {
             getMessagesResponse.setErrcode(400);
             getMessagesResponse.setErrstr("E' accettato solo il valore INBOX per il parametro Folder");
-            throw new RuntimeException("E' accettato solo valore INBOX per il parametro Folder");
+            return getMessagesResponse;
         }
         try {
             semaphore.acquire();
@@ -256,30 +194,25 @@ public class PecImapBridgeEndpoint {
             //flux from iterable, creare lista degli id necessari
             //Il parametro "MesArrayOfMessages" deve essere inizializzato SOLO se sono presenti messaggi in memoria.
             if (limit > 0) {
-                Iterator<Map.Entry<String, byte[]>> iterator = pecMapProcessedElements.entrySet().iterator();
-                ArrayList<String> elementToRemove = new ArrayList<>();
+                Iterator<Map.Entry<String, PecInfo>> iterator = pecMapProcessedElements.entrySet().iterator();
                 for (int i = 0; i < limit; i++) {
                     log.debug("getMessages() - message n. {}", i);
                     String messageIdIterator = null;
-                    byte[] mimeMessage = null;
+                    PecInfo pecInfo = null;
                     if (iterator.hasNext()) {
-                        Map.Entry<String, byte[]> entry = iterator.next();
+                        Map.Entry<String, PecInfo> entry = iterator.next();
                         messageIdIterator = entry.getKey();
-                        elementToRemove.add(messageIdIterator);
                         log.debug("---messageIdIterator---: {}", messageIdIterator);
-                        mimeMessage = entry.getValue();
+                        pecInfo = entry.getValue();
 
-                        mesArrayOfMessages.getItem().add(mimeMessage);
+                        if (pecInfo.getPecType().equals(PecType.ACCETTAZIONE))
+                            mesArrayOfMessages.getItem().add(generateMimeMessageAccettazione(pecInfo, messageIdIterator));
+                        else mesArrayOfMessages.getItem().add(generateMimeMessageConsegna(pecInfo, messageIdIterator));
+
                     } else {
                         log.debug("break");
                         break;
                     }
-                }
-
-                for (String element : elementToRemove
-                ) {
-                    log.debug("elementToRemove value: {}", element);
-                    pecMapProcessedElements.remove(element);
                 }
             }
 
@@ -295,7 +228,7 @@ public class PecImapBridgeEndpoint {
             log.debug("getMessages() - delay {}", iDelay);
             Thread.sleep(iDelay);
         } catch (Exception e) {
-            log.error("Excepion Thread");
+            log.error("Exception Thread");
         }
         semaphore.release();
 
@@ -318,26 +251,26 @@ public class PecImapBridgeEndpoint {
         if (Objects.isNull(parameters.getMailid()) || parameters.getMailid().equals("")) {
             getMessageIDResponse.setErrcode(400);
             getMessageIDResponse.setErrstr("Il campo mailId deve essere valorizzato");
-            throw new RuntimeException("Il campo mailId deve essere valorizzato");
+            return getMessageIDResponse;
         }
         //isuid deve essere 2 e not null
         if (Objects.isNull(parameters.getIsuid()) || !parameters.getIsuid().equals(2)) {
             getMessageIDResponse.setErrcode(400);
             getMessageIDResponse.setErrstr("E' accettato solo il valore 2 per il parametro isuId");
-            throw new RuntimeException("E' accettato solo il valore 2 per il parametro isuId");
+            return getMessageIDResponse;
         }
         //markseen not null e valorizzato a 1
         if (Objects.isNull(parameters.getMarkseen()) || !parameters.getMarkseen().equals(1)) {
             getMessageIDResponse.setErrcode(400);
             getMessageIDResponse.setErrstr("E' accettato solo il valore 1 per il parametro markseen");
-            throw new RuntimeException("E' accettato solo il valore 1 per il parametro markseen");
+            return getMessageIDResponse;
         }
 
         return Mono.just(parameters).map(sendMail -> {
 
                     log.debug(INVOKING_OPERATION, GET_MESSAGE_ID, sendMail);
                     String messageID = sendMail.getMailid();
-                    byte[] pecInfo = pecMapProcessedElements.remove(messageID);
+                    var pecInfo = pecMapProcessedElements.remove(messageID);
                     log.debug("Removed pec with messageID '{}'", messageID);
 
                     //se pecInfo è null diamo una response di errore
@@ -349,7 +282,9 @@ public class PecImapBridgeEndpoint {
                         getMessageIDResponse.setErrcode(0);
                         getMessageIDResponse.setErrstr("ok");
                         getMessageIDResponse.setErrblock(0);
-                        getMessageIDResponse.setMessage(pecInfo);
+                        if (pecInfo.getPecType().equals(PecType.ACCETTAZIONE))
+                            getMessageIDResponse.setMessage(generateMimeMessageAccettazione(pecInfo, parameters.getMailid()));
+                        else getMessageIDResponse.setMessage(generateMimeMessageConsegna(pecInfo, parameters.getMailid()));
                     }
                     log.info(SUCCESSFUL_OPERATION, SEND_MAIL, getMessageIDResponse);
 
@@ -360,4 +295,112 @@ public class PecImapBridgeEndpoint {
                     return getMessageIDResponseMsg;
                 }).block();
     }
+
+    private EmailAttachment generateDaticertAccettazioneField(PecInfo pecInfo) {
+
+        String subject = pecInfo.getSubject();
+        String messageID = pecInfo.getMessageId();
+        String from = pecInfo.getFrom();
+        String replyTo = pecInfo.getReplyTo();
+        String receiverAddress = pecInfo.getReceiverAddress();
+
+        String timeStampData = new SimpleDateFormat("dd/MM/yyyy").format(Calendar.getInstance().getTime());
+        String timeStampOrario = new SimpleDateFormat("HH:mm:ss").format(Calendar.getInstance().getTime());
+
+        StringBuffer daticert = PecUtils.generateDaticertAccettazione(from, receiverAddress, replyTo, subject,
+                MOCK_PEC, timeStampData, timeStampOrario, messageID);
+
+        ByteArrayOutputStream byteArrayOutputStreamDaticert = new ByteArrayOutputStream(daticert.length());
+        try {
+            byteArrayOutputStreamDaticert.write(daticert.toString().getBytes());
+        } catch (IOException ioException) {
+            log.error("IOException: {} - {}", ioException, ioException.getMessage());
+        }
+
+        return EmailAttachment.builder()
+                .nameWithExtension("daticert.xml")
+                .content(byteArrayOutputStreamDaticert)//generare una stringa, da cui generare l'outputstram
+                .build();
+    }
+
+    private EmailAttachment generateDaticertConsegnaField(PecInfo pecInfo) {
+
+        String subject = pecInfo.getSubject();
+        String messageID = pecInfo.getMessageId();
+        String from = pecInfo.getFrom();
+        String replyTo = pecInfo.getReplyTo();
+        String receiverAddress = pecInfo.getReceiverAddress();
+
+        String timeStampData = new SimpleDateFormat("dd/MM/yyyy").format(Calendar.getInstance().getTime());
+        String timeStampOrario = new SimpleDateFormat("HH:mm:ss").format(Calendar.getInstance().getTime());
+
+        StringBuffer daticert = PecUtils.generateDaticertConsegna(from, receiverAddress, replyTo, subject,
+                MOCK_PEC, timeStampData, timeStampOrario, messageID);
+
+        ByteArrayOutputStream byteArrayOutputStreamDaticert = new ByteArrayOutputStream(daticert.length());
+        try {
+            byteArrayOutputStreamDaticert.write(daticert.toString().getBytes());
+        } catch (IOException ioException) {
+            log.error("IOException: {} - {}", ioException, ioException.getMessage());
+        }
+
+        return EmailAttachment.builder()
+                .nameWithExtension("daticert.xml")
+                .content(byteArrayOutputStreamDaticert)//generare una stringa, da cui generare l'outputstram
+                .build();
+    }
+
+    private byte[] generateMimeMessageAccettazione(PecInfo pecInfo, String msgId) {
+        String subject = pecInfo.getSubject();
+        String messageID = pecInfo.getMessageId();
+        String from = pecInfo.getFrom();
+        String replyTo = pecInfo.getReplyTo();
+        String receiverAddress = pecInfo.getReceiverAddress();
+
+        String timeStampData = new SimpleDateFormat("dd/MM/yyyy").format(Calendar.getInstance().getTime());
+        String timeStampOrario = new SimpleDateFormat("HH:mm:ss").format(Calendar.getInstance().getTime());
+
+        StringBuffer ricevutaAccettazione = PecUtils.generateRicevutaAccettazione(timeStampData, timeStampOrario, subject, from, receiverAddress);
+        List<EmailAttachment> listAttachmentsAccettazione = new ArrayList<>();
+        listAttachmentsAccettazione.add(generateDaticertAccettazioneField(pecInfo));
+
+        EmailField emailFieldAccettazione = EmailField.builder()
+                .subject("ACCETTAZIONE")
+                .to(from)//mittende della mappa, se non c'è è da salvare
+                .from("posta-certificata@pec.aruba.it")
+                .contentType("multipart/mixed")
+                .msgId(msgId)//stringa random 64 caratteri
+                .text(String.valueOf(ricevutaAccettazione))//ricomporre stringa "Ricevuta di accettazione del messaggio indirizzato"
+                .emailAttachments(listAttachmentsAccettazione).build();
+
+        return PecUtils.getMimeMessageInBase64(emailFieldAccettazione);
+    }
+
+    private byte[] generateMimeMessageConsegna(PecInfo pecInfo, String msgId) {
+        String subject = pecInfo.getSubject();
+        String messageID = pecInfo.getMessageId();
+        String from = pecInfo.getFrom();
+        String replyTo = pecInfo.getReplyTo();
+        String receiverAddress = pecInfo.getReceiverAddress();
+
+        String timeStampData = new SimpleDateFormat("dd/MM/yyyy").format(Calendar.getInstance().getTime());
+        String timeStampOrario = new SimpleDateFormat("HH:mm:ss").format(Calendar.getInstance().getTime());
+
+        StringBuffer ricevutaConsegna = PecUtils.generateRicevutaAccettazione(timeStampData, timeStampOrario, subject, from, receiverAddress);
+        List<EmailAttachment> listAttachmentsConsegna = new ArrayList<>();
+        listAttachmentsConsegna.add(generateDaticertConsegnaField(pecInfo));
+
+
+        EmailField emailFieldConsegna = EmailField.builder()
+                .subject("CONSEGNA")
+                .to(from)//mittende della mappa, se non c'è è da salvare
+                .from("posta-certificata@pec.aruba.it")
+                .contentType("multipart/mixed")
+                .msgId(msgId)//stringa random 64 caratteri
+                .text(String.valueOf(ricevutaConsegna))//ricomporre stringa "Ricevuta di accettazione del messaggio indirizzato"
+                .emailAttachments(listAttachmentsConsegna).build();
+
+        return PecUtils.getMimeMessageInBase64(emailFieldConsegna);
+    }
+
 }
