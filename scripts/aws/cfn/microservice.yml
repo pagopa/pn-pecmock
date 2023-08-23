@@ -46,6 +46,7 @@ Parameters:
   EcsDefaultSecurityGroup:
     Type: String
     Description: 'Default security group required by infrastructure'
+    Default: ''
 
   ApplicationLoadBalancerListenerArn:
     Type: String
@@ -58,6 +59,7 @@ Parameters:
   NetworkLoadBalancerLink:
     Type: String
     Description: 'network load balancer link for API-GW'
+    Default: ''
   
   LogsKinesisSourceStreamArn:
     Type: String
@@ -75,7 +77,7 @@ Resources:
     Properties:
       TemplateURL: !Sub "${TemplateBucketBaseUrl}/fragments/ecs-service.yaml"
       Parameters:
-        MicroServiceUniqueName: !Sub '${ProjectName}-template-ms-be'
+        MicroServiceUniqueName: !Sub '${ProjectName}-pecmock'
         CpuValue: 512
         MemoryAmount: 2GB
         AlarmSNSTopicArn: !Ref AlarmSNSTopicArn
