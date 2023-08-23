@@ -352,9 +352,7 @@ public class PecImapBridgeEndpoint {
 
     private byte[] generateMimeMessageAccettazione(PecInfo pecInfo, String msgId) {
         String subject = pecInfo.getSubject();
-        String messageID = pecInfo.getMessageId();
         String from = pecInfo.getFrom();
-        String replyTo = pecInfo.getReplyTo();
         String receiverAddress = pecInfo.getReceiverAddress();
 
         String timeStampData = new SimpleDateFormat("dd/MM/yyyy").format(Calendar.getInstance().getTime());
@@ -368,7 +366,7 @@ public class PecImapBridgeEndpoint {
                 .subject("ACCETTAZIONE")
                 .to(from)//mittende della mappa, se non c'è è da salvare
                 .from("posta-certificata@pec.aruba.it")
-                .contentType("multipart/mixed")
+                .contentType("text/plain")
                 .msgId(msgId)//stringa random 64 caratteri
                 .text(String.valueOf(ricevutaAccettazione))//ricomporre stringa "Ricevuta di accettazione del messaggio indirizzato"
                 .emailAttachments(listAttachmentsAccettazione).build();
@@ -395,7 +393,7 @@ public class PecImapBridgeEndpoint {
                 .subject("CONSEGNA")
                 .to(from)//mittende della mappa, se non c'è è da salvare
                 .from("posta-certificata@pec.aruba.it")
-                .contentType("multipart/mixed")
+                .contentType("text/plain")
                 .msgId(msgId)//stringa random 64 caratteri
                 .text(String.valueOf(ricevutaConsegna))//ricomporre stringa "Ricevuta di accettazione del messaggio indirizzato"
                 .emailAttachments(listAttachmentsConsegna).build();
