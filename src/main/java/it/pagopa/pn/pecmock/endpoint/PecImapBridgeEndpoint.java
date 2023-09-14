@@ -2,6 +2,7 @@ package it.pagopa.pn.pecmock.endpoint;
 
 import https.bridgews_pec_it.pecimapbridge.*;
 import https.bridgews_pec_it.pecimapbridge.SendMailResponse;
+import it.pagopa.pn.pecmock.configuration.PecMockConfiguration;
 import it.pagopa.pn.pecmock.exception.SemaphoreException;
 import it.pagopa.pn.pecmock.model.pojo.EmailAttachment;
 import it.pagopa.pn.pecmock.model.pojo.EmailField;
@@ -10,7 +11,7 @@ import it.pagopa.pn.pecmock.model.pojo.PecType;
 import it.pagopa.pn.pecmock.utils.PecUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.ws.server.endpoint.annotation.Endpoint;
 import org.springframework.ws.server.endpoint.annotation.PayloadRoot;
 import org.springframework.ws.server.endpoint.annotation.RequestPayload;
@@ -30,21 +31,22 @@ import static it.pagopa.pn.pecmock.utils.LogUtils.*;
 
 @Endpoint
 @Slf4j
+@AutoConfiguration
 public class PecImapBridgeEndpoint {
     private static final String NAMESPACE_URI = "https://bridgews.pec.it/PecImapBridge/";
     private final Map<String, PecInfo> pecMapProcessedElements = new HashMap<>();
-    @Value("${mock.pec.semaphore}")
-    private int mockPecSemaphore = 10;
-    @Value("${mock.pec.minDelay}")
-    private int minDelay = 10;
-    @Value("${mock.pec.maxDelay}")
-    private int maxDelay = 60;
+    private int mockPecSemaphore;
+    private int minDelay;
+    private int maxDelay;
     private Semaphore semaphore = null;
     private static final String MOCK_PEC = "MOCK_PEC";
 
     @Autowired
-    public PecImapBridgeEndpoint() {
+    public PecImapBridgeEndpoint(PecMockConfiguration mockConf) {
         log.debug("MockEndpoint() - {}", mockPecSemaphore);
+        mockPecSemaphore = mockConf.semaphores();
+        minDelay = mockConf.minDelay();
+        maxDelay = mockConf.maxDelay();
         semaphore = new Semaphore(mockPecSemaphore);
     }
 
