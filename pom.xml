@@ -14,10 +14,10 @@
 		<relativePath/>
 	</parent>
 	
-	<artifactId>pn-template-ms-be</artifactId>
+	<artifactId>pn-pecmock</artifactId>
 	<version>1.0.0-SNAPSHOT</version>
-	<name>pn-template-ms-be</name>
-	<description>A template for a PN Backend Microservice</description>
+	<name>pn-pecmock</name>
+	<description>A mock implementation to emulate PEC webservice</description>
 	<scm>
 		<connection>${git.conn}</connection>
 		<developerConnection>${git.devConn}</developerConnection>
