@@ -31,7 +31,6 @@ import static it.pagopa.pn.pecmock.utils.LogUtils.*;
 
 @Endpoint
 @Slf4j
-@AutoConfiguration
 public class PecImapBridgeEndpoint {
     private static final String NAMESPACE_URI = "https://bridgews.pec.it/PecImapBridge/";
     private final Map<String, PecInfo> pecMapProcessedElements = new HashMap<>();
