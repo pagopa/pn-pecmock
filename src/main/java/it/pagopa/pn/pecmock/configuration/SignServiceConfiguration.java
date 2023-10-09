@@ -27,12 +27,12 @@ public class SignServiceConfiguration extends WsConfigurerAdapter {
     }
 
     @Bean(name = "sign")
-    public DefaultWsdl11Definition defaultWsdl11Definition(XsdSchema pecSchema) {
+    public DefaultWsdl11Definition defaultWsdl11Definition(XsdSchema signServiceSchema) {
         DefaultWsdl11Definition wsdl11Definition = new DefaultWsdl11Definition();
         wsdl11Definition.setPortTypeName("SignService");
         wsdl11Definition.setLocationUri("/SignService");
         wsdl11Definition.setTargetNamespace("http://arubasignservice.arubapec.it/");
-        wsdl11Definition.setSchema(pecSchema);
+        wsdl11Definition.setSchema(signServiceSchema);
         return wsdl11Definition;
     }
 
