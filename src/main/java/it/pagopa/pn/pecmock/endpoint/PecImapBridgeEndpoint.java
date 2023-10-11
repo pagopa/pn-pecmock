@@ -16,6 +16,7 @@ import org.springframework.ws.server.endpoint.annotation.Endpoint;
 import org.springframework.ws.server.endpoint.annotation.PayloadRoot;
 import org.springframework.ws.server.endpoint.annotation.RequestPayload;
 import org.springframework.ws.server.endpoint.annotation.ResponsePayload;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import javax.mail.MessagingException;
@@ -26,6 +27,7 @@ import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Semaphore;
+import java.util.function.Function;
 
 import static it.pagopa.pn.pecmock.utils.LogUtils.*;
 
@@ -111,8 +113,8 @@ public class PecImapBridgeEndpoint {
                     log.debug("---Email presenti nella mappa sendMail()---: {}", pecMapProcessedElements.size());
                     return sendMailResponse;
                 })
-                .delayElement(Duration.ofMillis(PecUtils.getRandomNumberBetweenMinMax(minDelay, maxDelay)))
-                .doOnSuccess(result->log.info(SUCCESSFUL_OPERATION, SEND_MAIL, result))
+                .transform(delayElement())
+                .doOnSuccess(result -> log.info(SUCCESSFUL_OPERATION, SEND_MAIL, result))
                 .doOnError(throwable -> log.error(ENDING_PROCESS_WITH_ERROR, SEND_MAIL, throwable, throwable.getMessage()))
                 .doFinally(sendMailResponseMsg -> semaphore.release())
                 .block();
@@ -221,7 +223,7 @@ public class PecImapBridgeEndpoint {
                 })
                 .doOnNext(getMessagesResponse::setArrayOfMessages)
                 .thenReturn(getMessagesResponse)
-                .delayElement(Duration.ofMillis(PecUtils.getRandomNumberBetweenMinMax(minDelay, maxDelay)))
+                .transform(delayElement())
                 .doOnSuccess(result -> log.info(SUCCESSFUL_OPERATION, GET_MESSAGES, result))
                 .doOnError(throwable -> log.error(ENDING_PROCESS_WITH_ERROR, GET_MESSAGES, throwable, throwable.getMessage()))
                 .doFinally(result -> semaphore.release())
@@ -281,11 +283,22 @@ public class PecImapBridgeEndpoint {
                     }
                     return getMessageIDResponse;
                 })
-                .delayElement(Duration.ofMillis(PecUtils.getRandomNumberBetweenMinMax(minDelay, maxDelay)))
+                .transform(delayElement())
                 .doOnSuccess(result -> log.info(SUCCESSFUL_OPERATION, GET_MESSAGE_ID, result))
                 .doOnError(throwable -> log.error(ENDING_PROCESS_WITH_ERROR, GET_MESSAGE_ID, throwable, throwable.getMessage()))
                 .doFinally(result -> semaphore.release())
                 .block();
+    }
+
+    private <T> Function<Mono<T>, Mono<T>> delayElement() {
+        return tMono -> tMono.flatMap(response -> {
+            try {
+                Thread.sleep(PecUtils.getRandomNumberBetweenMinMax(minDelay, maxDelay));
+            } catch (InterruptedException e) {
+                return Mono.error(e);
+            }
+            return Mono.just(response);
+        });
     }
 
     private EmailAttachment generateDaticertAccettazioneField(PecInfo pecInfo) {
