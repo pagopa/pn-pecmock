@@ -109,14 +109,13 @@ public class PecImapBridgeEndpoint {
                     sendMailResponse.setErrstr(messageID);
 
                     log.debug("---Email presenti nella mappa sendMail()---: {}", pecMapProcessedElements.size());
-                    log.info(SUCCESSFUL_OPERATION, SEND_MAIL, sendMailResponse);
                     return sendMailResponse;
                 })
                 .delayElement(Duration.ofMillis(PecUtils.getRandomNumberBetweenMinMax(minDelay, maxDelay)))
-                .map(sendMailResponseMsg -> {
-                    semaphore.release();
-                    return sendMailResponseMsg;
-                }).block();
+                .doOnSuccess(result->log.info(SUCCESSFUL_OPERATION, SEND_MAIL, result))
+                .doOnError(throwable -> log.error(ENDING_PROCESS_WITH_ERROR, SEND_MAIL, throwable, throwable.getMessage()))
+                .doFinally(sendMailResponseMsg -> semaphore.release())
+                .block();
     }
 
     @PayloadRoot(namespace = NAMESPACE_URI, localPart = "getMessages")
@@ -125,13 +124,12 @@ public class PecImapBridgeEndpoint {
         log.debug(INVOKING_OPERATION, GET_MESSAGES, parameters.toString());
 
         GetMessagesResponse getMessagesResponse = new GetMessagesResponse();
-        MesArrayOfMessages mesArrayOfMessages = new MesArrayOfMessages();
 
         //TODO: se Limit diverso da 0, errore
         log.debug("getMessages() - limit {}", parameters.getLimit());
-        if (Objects.isNull(parameters.getLimit()) || parameters.getLimit() == 0) {
+        if (Objects.isNull(parameters.getLimit()) || parameters.getLimit() <= 0) {
             getMessagesResponse.setErrcode(400);
-            getMessagesResponse.setErrstr("Il valore deve essere diverso da 0 per il parametro Limit");
+            getMessagesResponse.setErrstr("Il valore deve essere maggiore di 0 per il parametro Limit");
             return getMessagesResponse;
         }
         //TODO: se outtype diverso da 2, errore
@@ -177,63 +175,57 @@ public class PecImapBridgeEndpoint {
             throw new SemaphoreException();
         }
 
-        Mono.just(parameters).map(getMessages -> {
-            int mapSize = pecMapProcessedElements.size();
+        return Mono.just(parameters).flatMap(getMessages -> {
+                    int mapSize = pecMapProcessedElements.size();
 
-            int limit = parameters.getLimit() == null ? 0 : parameters.getLimit();
+                    int limit = parameters.getLimit() == null ? 0 : parameters.getLimit();
 
-            if (limit % 2 != 0 || limit == 0) {
-                getMessagesResponse.setErrcode(400);
-                getMessagesResponse.setErrstr("Sono accettati valori pari per il parametro limit");
-                throw new RuntimeException("Sono accettati valori pari per il parametro limit");
-            }
-            //Prendiamo il minimo tra la lunghezza della mappa e il parametro "limit" fornito dalla request.
-            //In questo modo, se il limit supera la size della mappa, evitiamo una IndexOutOfBoundsException.
-            limit = Math.min(parameters.getLimit() == null ? mapSize * 2 : parameters.getLimit(), mapSize * 2);
-
-            log.debug("getMessages() - calculated limit {}", limit);
-            //flux from iterable, creare lista degli id necessari
-            //Il parametro "MesArrayOfMessages" deve essere inizializzato SOLO se sono presenti messaggi in memoria.
-            if (limit > 0) {
-                Iterator<Map.Entry<String, PecInfo>> iterator = pecMapProcessedElements.entrySet().iterator();
-                for (int i = 0; i < limit; i++) {
-                    log.debug("getMessages() - message n. {}", i);
-                    String messageIdIterator = null;
-                    PecInfo pecInfo = null;
-                    if (iterator.hasNext()) {
-                        Map.Entry<String, PecInfo> entry = iterator.next();
-                        messageIdIterator = entry.getKey();
-                        log.debug("---messageIdIterator---: {}", messageIdIterator);
-                        pecInfo = entry.getValue();
-
-                        if (pecInfo.getPecType().equals(PecType.ACCETTAZIONE))
-                            mesArrayOfMessages.getItem().add(generateMimeMessageAccettazione(pecInfo, messageIdIterator));
-                        else mesArrayOfMessages.getItem().add(generateMimeMessageConsegna(pecInfo, messageIdIterator));
-
-                    } else {
-                        log.debug("break");
-                        break;
+                    if (limit % 2 != 0 || limit == 0) {
+                        getMessagesResponse.setErrcode(400);
+                        getMessagesResponse.setErrstr("Sono accettati valori pari per il parametro limit");
+                        throw new RuntimeException("Sono accettati valori pari per il parametro limit");
                     }
-                }
-            }
+                    //Prendiamo il minimo tra la lunghezza della mappa e il parametro "limit" fornito dalla request.
+                    //In questo modo, se il limit supera la size della mappa, evitiamo una IndexOutOfBoundsException.
+                    limit = Math.min(parameters.getLimit() == null ? mapSize * 2 : parameters.getLimit(), mapSize * 2);
 
-            log.debug("---pecMapProcessedElements.size() getMessages()---: {}", pecMapProcessedElements.size());
-            return Mono.empty();
-        }).subscribe();
+                    log.debug("getMessages() - calculated limit {}", limit);
+                    //flux from iterable, creare lista degli id necessari
+                    //Il parametro "MesArrayOfMessages" deve essere inizializzato SOLO se sono presenti messaggi in memoria.
+                    if (limit > 0) {
+                        MesArrayOfMessages mesArrayOfMessages = new MesArrayOfMessages();
+                        Iterator<Map.Entry<String, PecInfo>> iterator = pecMapProcessedElements.entrySet().iterator();
+                        for (int i = 0; i < limit; i++) {
+                            log.debug("getMessages() - message n. {}", i);
+                            String messageIdIterator = null;
+                            PecInfo pecInfo = null;
+                            if (iterator.hasNext()) {
+                                Map.Entry<String, PecInfo> entry = iterator.next();
+                                messageIdIterator = entry.getKey();
+                                log.debug("---messageIdIterator---: {}", messageIdIterator);
+                                pecInfo = entry.getValue();
 
-        getMessagesResponse.setArrayOfMessages(mesArrayOfMessages);
-        log.info(SUCCESSFUL_OPERATION, GET_MESSAGES, getMessagesResponse);
+                                if (pecInfo.getPecType().equals(PecType.ACCETTAZIONE))
+                                    mesArrayOfMessages.getItem().add(generateMimeMessageAccettazione(pecInfo, messageIdIterator));
+                                else mesArrayOfMessages.getItem().add(generateMimeMessageConsegna(pecInfo, messageIdIterator));
 
-        try {
-            int iDelay = PecUtils.getRandomNumberBetweenMinMax(minDelay, maxDelay);
-            log.debug("getMessages() - delay {}", iDelay);
-            Thread.sleep(iDelay);
-        } catch (Exception e) {
-            log.error("Exception Thread");
-        }
-        semaphore.release();
-
-        return getMessagesResponse;
+                            } else {
+                                log.debug("break");
+                                break;
+                            }
+                        }
+                        return Mono.just(mesArrayOfMessages);
+                    }
+                    log.debug("---pecMapProcessedElements.size() getMessages()---: {}", pecMapProcessedElements.size());
+                    return Mono.empty();
+                })
+                .doOnNext(getMessagesResponse::setArrayOfMessages)
+                .thenReturn(getMessagesResponse)
+                .delayElement(Duration.ofMillis(PecUtils.getRandomNumberBetweenMinMax(minDelay, maxDelay)))
+                .doOnSuccess(result -> log.info(SUCCESSFUL_OPERATION, GET_MESSAGES, result))
+                .doOnError(throwable -> log.error(ENDING_PROCESS_WITH_ERROR, GET_MESSAGES, throwable, throwable.getMessage()))
+                .doFinally(result -> semaphore.release())
+                .block();
     }
 
     @PayloadRoot(namespace = NAMESPACE_URI, localPart = "getMessageID")
@@ -287,14 +279,13 @@ public class PecImapBridgeEndpoint {
                             getMessageIDResponse.setMessage(generateMimeMessageAccettazione(pecInfo, parameters.getMailid()));
                         else getMessageIDResponse.setMessage(generateMimeMessageConsegna(pecInfo, parameters.getMailid()));
                     }
-                    log.info(SUCCESSFUL_OPERATION, SEND_MAIL, getMessageIDResponse);
-
                     return getMessageIDResponse;
-                }).delayElement(Duration.ofMillis(PecUtils.getRandomNumberBetweenMinMax(minDelay, maxDelay)))
-                .map(getMessageIDResponseMsg -> {
-                    semaphore.release();
-                    return getMessageIDResponseMsg;
-                }).block();
+                })
+                .delayElement(Duration.ofMillis(PecUtils.getRandomNumberBetweenMinMax(minDelay, maxDelay)))
+                .doOnSuccess(result -> log.info(SUCCESSFUL_OPERATION, GET_MESSAGE_ID, result))
+                .doOnError(throwable -> log.error(ENDING_PROCESS_WITH_ERROR, GET_MESSAGE_ID, throwable, throwable.getMessage()))
+                .doFinally(result -> semaphore.release())
+                .block();
     }
 
     private EmailAttachment generateDaticertAccettazioneField(PecInfo pecInfo) {
