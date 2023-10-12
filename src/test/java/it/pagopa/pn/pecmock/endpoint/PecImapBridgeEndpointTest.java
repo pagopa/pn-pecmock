@@ -1,4 +1,4 @@
-package it.pagopa.pn.pecmock.test.endpoint;
+package it.pagopa.pn.pecmock.endpoint;
 
 import https.bridgews_pec_it.pecimapbridge.*;
 import it.pagopa.pn.pecmock.endpoint.PecImapBridgeEndpoint;
@@ -6,8 +6,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 
 @SpringBootTest
+@DirtiesContext( classMode= DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD )
 public class PecImapBridgeEndpointTest {
 
     @Autowired
@@ -29,10 +31,55 @@ public class PecImapBridgeEndpointTest {
     }
 
     @Test
-    void getMessagesOk() {
+    void getOneMessageOk() {
         SendMail sendMail = new SendMail();
         sendMail.setData(getData());
         pecImapBridgeEndpoint.sendMail(sendMail);
+
+        //GIVEN
+        GetMessages getMessages = new GetMessages();
+        getMessages.setLimit(1);
+        getMessages.setOuttype(2);
+        getMessages.setUnseen(1);
+        getMessages.setMsgtype("ALL");
+        getMessages.setMarkseen(0);
+
+
+        //WHEN
+        GetMessagesResponse getMessagesResponse = pecImapBridgeEndpoint.getMessages(getMessages);
+
+        //THEN
+        Assertions.assertNotNull(getMessagesResponse);
+        Assertions.assertNotNull(getMessagesResponse.getArrayOfMessages());
+        Assertions.assertEquals(1, getMessagesResponse.getArrayOfMessages().getItem().size());
+    }
+
+    @Test
+    void getMoreMessagesOk() {
+        SendMail sendMail = new SendMail();
+        sendMail.setData(getData());
+        pecImapBridgeEndpoint.sendMail(sendMail);
+
+        //GIVEN
+        GetMessages getMessages = new GetMessages();
+        getMessages.setLimit(10);
+        getMessages.setOuttype(2);
+        getMessages.setUnseen(1);
+        getMessages.setMsgtype("ALL");
+        getMessages.setMarkseen(0);
+
+
+        //WHEN
+        GetMessagesResponse getMessagesResponse = pecImapBridgeEndpoint.getMessages(getMessages);
+
+        //THEN
+        Assertions.assertNotNull(getMessagesResponse);
+        Assertions.assertNotNull(getMessagesResponse.getArrayOfMessages());
+        Assertions.assertEquals(2, getMessagesResponse.getArrayOfMessages().getItem().size());
+    }
+
+    @Test
+    void getMessagesEmptyFolderOk() {
 
         //GIVEN
         GetMessages getMessages = new GetMessages();
@@ -48,8 +95,7 @@ public class PecImapBridgeEndpointTest {
 
         //THEN
         Assertions.assertNotNull(getMessagesResponse);
-        Assertions.assertNotNull(getMessagesResponse.getArrayOfMessages());
-        Assertions.assertEquals(2, getMessagesResponse.getArrayOfMessages().getItem().size());
+        Assertions.assertNull(getMessagesResponse.getArrayOfMessages());
     }
 
     private String getData() {

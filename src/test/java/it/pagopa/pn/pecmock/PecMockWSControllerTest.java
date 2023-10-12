@@ -1,4 +1,4 @@
-package it.pagopa.pn.pecmock.test;
+package it.pagopa.pn.pecmock;
 
 
 import org.junit.jupiter.api.Assertions;
