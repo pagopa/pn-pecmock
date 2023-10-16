@@ -1,3 +1,4 @@
+
 package it.pagopa.pn.pecmock.endpoint;
 
 import https.bridgews_pec_it.pecimapbridge.*;
@@ -26,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.function.Function;
 
@@ -35,7 +37,7 @@ import static it.pagopa.pn.pecmock.utils.LogUtils.*;
 @Slf4j
 public class PecImapBridgeEndpoint {
     private static final String NAMESPACE_URI = "https://bridgews.pec.it/PecImapBridge/";
-    private final Map<String, PecInfo> pecMapProcessedElements = new HashMap<>();
+    private final Map<String, PecInfo> pecMapProcessedElements = new ConcurrentHashMap<>();
     private int mockPecSemaphore;
     private int minDelay;
     private int maxDelay;
