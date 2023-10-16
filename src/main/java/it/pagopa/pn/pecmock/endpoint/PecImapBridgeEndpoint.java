@@ -242,6 +242,7 @@ public class PecImapBridgeEndpoint {
             throw new SemaphoreException();
         }
 
+        log.debug("mailid: {}", parameters.getMailid());
         //obbligatorio not null
         if (Objects.isNull(parameters.getMailid()) || parameters.getMailid().equals("")) {
             getMessageIDResponse.setErrcode(400);
