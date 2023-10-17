@@ -35,9 +35,13 @@ Parameters:
     Type: String
     Description: 'The name of the ECS cluster where the microservice is going to be deployed'
 
-  SubnetsIds:
+#  SubnetsIds:
+#    Type: String
+#    Description: 'subnets ids comma separated list. Where to deploy the microservice'
+
+  VpcEgressSubnetsIds:
     Type: String
-    Description: 'subnets ids comma separated list. Where to deploy the microservice'
+    Description: subnets where to install PN-CONFINFO
 
   VpcId:
     Type: String
@@ -46,6 +50,7 @@ Parameters:
   EcsDefaultSecurityGroup:
     Type: String
     Description: 'Default security group required by infrastructure'
+    Default: ''
 
   ApplicationLoadBalancerListenerArn:
     Type: String
@@ -58,6 +63,7 @@ Parameters:
   NetworkLoadBalancerLink:
     Type: String
     Description: 'network load balancer link for API-GW'
+    Default: ''
   
   LogsKinesisSourceStreamArn:
     Type: String
@@ -75,15 +81,15 @@ Resources:
     Properties:
       TemplateURL: !Sub "${TemplateBucketBaseUrl}/fragments/ecs-service.yaml"
       Parameters:
-        MicroServiceUniqueName: !Sub '${ProjectName}-template-ms-be'
-        CpuValue: 512
-        MemoryAmount: 2GB
+        MicroServiceUniqueName: !Sub '${ProjectName}-pecmock'
+        CpuValue: 2048
+        MemoryAmount: 4GB
         AlarmSNSTopicArn: !Ref AlarmSNSTopicArn
         ContainerImageURI: !Sub '${ContainerImageUri}'
         ContainerEnvEntry1: !Sub 'AWS_REGIONCODE=${AWS::Region}'
-        MappedPaths: '/template-ms-be/*'
+        MappedPaths: '/PecImapBridge'
         ECSClusterName: !Ref ECSClusterName
-        Subnets: !Ref SubnetsIds
+        Subnets: !Ref VpcEgressSubnetsIds
         VpcId: !Ref VpcId
         EcsDefaultSecurityGroup: !Ref EcsDefaultSecurityGroup
         LoadBalancerListenerArn: !Ref ApplicationLoadBalancerListenerArn
