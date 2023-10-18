@@ -12,32 +12,33 @@ import org.springframework.ws.wsdl.wsdl11.DefaultWsdl11Definition;
 import org.springframework.xml.xsd.SimpleXsdSchema;
 import org.springframework.xml.xsd.XsdSchema;
 
+import javax.xml.crypto.dsig.XMLSignatureFactory;
 
 @EnableWs
 @Configuration
-public class PecImapBridgeConfiguration extends WsConfigurerAdapter {
+public class SignServiceConfiguration extends WsConfigurerAdapter {
 
-    @Bean(name = "pecServlet")
+    @Bean(name = "signServiceServlet")
     public ServletRegistrationBean<MessageDispatcherServlet> messageDispatcherServlet(ApplicationContext applicationContext) {
         MessageDispatcherServlet servlet = new MessageDispatcherServlet();
         servlet.setApplicationContext(applicationContext);
         servlet.setTransformWsdlLocations(true);
-        return new ServletRegistrationBean<>(servlet, "/PecImapBridge/*");
+        return new ServletRegistrationBean<>(servlet, "/SignService/*");
     }
 
-    @Bean(name = "pec")
-    public DefaultWsdl11Definition defaultWsdl11Definition(XsdSchema pecSchema) {
+    @Bean(name = "sign")
+    public DefaultWsdl11Definition defaultWsdl11Definition(XsdSchema signServiceSchema) {
         DefaultWsdl11Definition wsdl11Definition = new DefaultWsdl11Definition();
-        wsdl11Definition.setPortTypeName("PecImapBridge");
-        wsdl11Definition.setLocationUri("/PecImapBridge");
-        wsdl11Definition.setTargetNamespace("https://bridgews.pec.it/PecImapBridge/");
-        wsdl11Definition.setSchema(pecSchema);
+        wsdl11Definition.setPortTypeName("SignService");
+        wsdl11Definition.setLocationUri("/SignService");
+        wsdl11Definition.setTargetNamespace("http://arubasignservice.arubapec.it/");
+        wsdl11Definition.setSchema(signServiceSchema);
         return wsdl11Definition;
     }
 
     @Bean
-    public XsdSchema pecSchema() {
-        return new SimpleXsdSchema(new ClassPathResource("pec/PecImapBridgeBWS1.5.xsd"));
+    public XsdSchema signServiceSchema() {
+        return new SimpleXsdSchema(new ClassPathResource("sign/ArubaSignService.xsd"));
     }
 
 }
