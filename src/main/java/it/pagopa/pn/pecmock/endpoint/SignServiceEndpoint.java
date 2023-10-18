@@ -126,11 +126,22 @@ public class SignServiceEndpoint {
                     signReturnV2.setDescription("Generic error.");
                     return Mono.just(signReturnV2);
                 })
-                .delayElement(Duration.ofMillis(generateDuration(fileSize, isRequiredmark)))
                 .map(signReturnV2 -> new JAXBElement<>(QName.valueOf(SIGN_RETURN_V2_QNAME), SignReturnV2.class, signReturnV2))
+                .transform(delayElement(fileSize, isRequiredmark))
                 .doOnSuccess(result -> log.debug(SUCCESSFUL_OPERATION, SIGN_DOCUMENT, result))
                 .doOnError(throwable -> log.error(ENDING_PROCESS_WITH_ERROR, SIGN_DOCUMENT, throwable, throwable.getMessage()))
                 .doFinally(result -> semaphore.release());
+    }
+
+    private <T> Function<Mono<T>, Mono<T>> delayElement(int fileSize, boolean isRequiredmark) {
+        return tMono -> tMono.flatMap(response -> {
+            try {
+                Thread.sleep(generateDuration(fileSize, isRequiredmark));
+            } catch (InterruptedException e) {
+                return Mono.error(e);
+            }
+            return Mono.just(response);
+        });
     }
 
     private long generateDuration(int fileSize, boolean isRequiredmark) {
