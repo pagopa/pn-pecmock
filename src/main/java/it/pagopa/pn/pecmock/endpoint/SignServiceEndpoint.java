@@ -119,6 +119,7 @@ public class SignServiceEndpoint {
                     return signReturnV2;
                 })
                 .onErrorResume(throwable -> {
+                    log.debug(GENERIC_ERROR, SIGN_DOCUMENT, throwable, throwable.getMessage());
                     SignReturnV2 signReturnV2 = new SignReturnV2();
                     signReturnV2.setStatus("KO");
                     signReturnV2.setReturnCode("0001");
@@ -128,6 +129,7 @@ public class SignServiceEndpoint {
                 .delayElement(Duration.ofMillis(generateDuration(fileSize, isRequiredmark)))
                 .map(signReturnV2 -> new JAXBElement<>(QName.valueOf(SIGN_RETURN_V2_QNAME), SignReturnV2.class, signReturnV2))
                 .doOnSuccess(result -> log.debug(SUCCESSFUL_OPERATION, SIGN_DOCUMENT, result))
+                .doOnError(throwable -> log.error(ENDING_PROCESS_WITH_ERROR, SIGN_DOCUMENT, throwable, throwable.getMessage()))
                 .doFinally(result -> semaphore.release());
     }
 
