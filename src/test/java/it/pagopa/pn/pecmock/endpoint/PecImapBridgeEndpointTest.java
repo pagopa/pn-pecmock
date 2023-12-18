@@ -1,7 +1,8 @@
 package it.pagopa.pn.pecmock.endpoint;
 
 import https.bridgews_pec_it.pecimapbridge.*;
-import it.pagopa.pn.pecmock.endpoint.PecImapBridgeEndpoint;
+import lombok.CustomLog;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +11,7 @@ import org.springframework.test.annotation.DirtiesContext;
 
 @SpringBootTest
 @DirtiesContext( classMode= DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD )
+@Slf4j
 public class PecImapBridgeEndpointTest {
 
     @Autowired
@@ -20,7 +22,7 @@ public class PecImapBridgeEndpointTest {
     {
         //GIVEN
         SendMail sendMail=new SendMail();
-        sendMail.setData(getData());
+        sendMail.setData(getData("subject"));
 
         //WHEN
         SendMailResponse sendMailResponse = pecImapBridgeEndpoint.sendMail(sendMail);
@@ -33,7 +35,7 @@ public class PecImapBridgeEndpointTest {
     @Test
     void getOneMessageOk() {
         SendMail sendMail = new SendMail();
-        sendMail.setData(getData());
+        sendMail.setData(getData("subject"));
         pecImapBridgeEndpoint.sendMail(sendMail);
 
         //GIVEN
@@ -57,7 +59,7 @@ public class PecImapBridgeEndpointTest {
     @Test
     void getMoreMessagesOk() {
         SendMail sendMail = new SendMail();
-        sendMail.setData(getData());
+        sendMail.setData(getData("subject"));
         pecImapBridgeEndpoint.sendMail(sendMail);
 
         //GIVEN
@@ -98,8 +100,54 @@ public class PecImapBridgeEndpointTest {
         Assertions.assertNull(getMessagesResponse.getArrayOfMessages());
     }
 
-    private String getData() {
-        return """
+    @Test
+    void testMessageCount() {
+        for (int i = 0; i<=1; i++){
+            SendMail sendMail = new SendMail();
+            sendMail.setData(getData("subject"));
+            pecImapBridgeEndpoint.sendMail(sendMail);
+        }
+
+        //WHEN
+        GetMessageCountResponse getMessageCountResponse = pecImapBridgeEndpoint.getMessageCount(new GetMessageCount());
+
+        //THEN
+        Assertions.assertNotNull(getMessageCountResponse);
+        Assertions.assertNotNull(getMessageCountResponse.getCount());
+        Assertions.assertEquals(4, getMessageCountResponse.getCount());
+
+
+    }
+
+    @Test
+    void testDeleteMessageOk(){
+        SendMail sendMail = new SendMail();
+        sendMail.setData(getData("subject"));
+        pecImapBridgeEndpoint.sendMail(sendMail);
+
+        String messageId = pecImapBridgeEndpoint.getPecMapProcessedElements().keySet().iterator().next();
+        Assertions.assertEquals(2, pecImapBridgeEndpoint.getPecMapProcessedElements().size());
+
+        pecImapBridgeEndpoint.deleteMail(new DeleteMail(){{
+            setMailid(messageId);
+            setIsuid(2);
+        }});
+
+        Assertions.assertEquals(1, pecImapBridgeEndpoint.getPecMapProcessedElements().size());
+    }
+
+    @Test
+    void testDeleteMessageKo(){
+      DeleteMailResponse response =  pecImapBridgeEndpoint.deleteMail(new DeleteMail(){{
+            setMailid("messageId");
+            setIsuid(2);
+        }});
+
+       Assertions.assertEquals(response.getErrcode(), 99);
+    }
+
+    private String getData(String subject) {
+        String s = """
                 <![CDATA[
                 Message-ID: messageID
                 Date: Sun, 3 Mar 2019 10:56:05 +0100
@@ -107,7 +155,7 @@ public class PecImapBridgeEndpointTest {
                 MIME-Version: 1.0
                 To:standard3@postacert.pre.demoaruba.com
                 Cc:standard2@postacert.pre.demoaruba.com
-                Subject: Messaggio di test
+                Subject: %s
                 Content-Type: multipart/alternative;
                 boundary="------------060001050801050801010200"
                 This is a multi-part message in MIME format.
@@ -124,6 +172,10 @@ public class PecImapBridgeEndpointTest {
                  </head><body bgcolor="#FFFFFF" text="#000000"><p>Test</p></body></html>
                 --------------060001050801050801010200--
                  ]]>""";
+
+        return String.format(s, subject);
     }
+
+
 
 }

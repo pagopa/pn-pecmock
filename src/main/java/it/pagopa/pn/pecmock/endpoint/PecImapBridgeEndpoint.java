@@ -4,12 +4,11 @@ package it.pagopa.pn.pecmock.endpoint;
 import https.bridgews_pec_it.pecimapbridge.*;
 import https.bridgews_pec_it.pecimapbridge.SendMailResponse;
 import it.pagopa.pn.pecmock.configuration.PecMockConfiguration;
+import it.pagopa.pn.pecmock.exception.RequestedErrorException;
 import it.pagopa.pn.pecmock.exception.SemaphoreException;
-import it.pagopa.pn.pecmock.model.pojo.EmailAttachment;
-import it.pagopa.pn.pecmock.model.pojo.EmailField;
-import it.pagopa.pn.pecmock.model.pojo.PecInfo;
-import it.pagopa.pn.pecmock.model.pojo.PecType;
+import it.pagopa.pn.pecmock.model.pojo.*;
 import it.pagopa.pn.pecmock.utils.PecUtils;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -25,18 +24,22 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.function.Function;
 
+import static it.pagopa.pn.pecmock.model.pojo.PecOperation.*;
 import static it.pagopa.pn.pecmock.utils.LogUtils.*;
+import static it.pagopa.pn.pecmock.utils.PecErrorUtils.errorLookUp;
+import static it.pagopa.pn.pecmock.utils.PecErrorUtils.parsedErrorCodes;
+import static it.pagopa.pn.pecmock.utils.PecUtils.insertMessageIdInBrackets;
 
 @Endpoint
 @Slf4j
 public class PecImapBridgeEndpoint {
     private static final String NAMESPACE_URI = "https://bridgews.pec.it/PecImapBridge/";
+    @Getter
     private final Map<String, PecInfo> pecMapProcessedElements = new ConcurrentHashMap<>();
     private int mockPecSemaphore;
     private int minDelay;
@@ -61,7 +64,7 @@ public class PecImapBridgeEndpoint {
         try {
             semaphore.acquire();
         } catch (InterruptedException e) {
-            log.error("Thread is waiting, sleeping, or otherwise occupied, and the thread is interrupted: {} - {}", e, e.getMessage());
+            log.error(THREAD_WAITING, e, e.getMessage());
             throw new SemaphoreException();
         }
 
@@ -77,7 +80,7 @@ public class PecImapBridgeEndpoint {
                     byte[] data = sendMail.getData().trim().getBytes(StandardCharsets.UTF_8);
 
                     return PecUtils.getMimeMessage(data);
-                }).map(mimeMessage -> {
+                }).flatMap(mimeMessage -> {
 
                     String subject = null;
                     String messageID = null;
@@ -94,26 +97,36 @@ public class PecImapBridgeEndpoint {
                         receiverAddress = mimeMessage.getAllRecipients()[0].toString();
                     } catch (MessagingException e) {
                         log.error("The retrivial of the field MessageID caused an exception: {} - {}", e, e.getMessage());
-                        SendMailResponse sendMailResponseError = new SendMailResponse();
-                        sendMailResponseError.setErrstr("Eccezione: " + e + " - " + e.getMessage());
-                        sendMailResponseError.setErrcode(999);
-                        sendMailResponseError.setErrblock(0);
-
-                        return sendMailResponseError;
+                        sendMailResponse.setErrstr("Eccezione: " + e + " - " + e.getMessage());
+                        sendMailResponse.setErrcode(999);
+                        sendMailResponse.setErrblock(0);
+                        return Mono.just(sendMailResponse);
                     }
 
-                    PecInfo pecInfoAccettazione = new PecInfo().messageId(messageID).receiverAddress(receiverAddress).from(from).replyTo(replyTo).subject(subject).pecType(PecType.ACCETTAZIONE);
-                    PecInfo pecInfoConsegna = new PecInfo().messageId(messageID).receiverAddress(receiverAddress).from(from).replyTo(replyTo).subject(subject).pecType(PecType.CONSEGNA);
+                    Map<String, String> errorMap = parsedErrorCodes(subject);
+                    if (!errorMap.isEmpty() && errorMap.containsKey(SM.getValue())) {
+                        return Mono.error(new RequestedErrorException(Integer.parseInt(errorMap.get(SM.getValue())), "Errore generato dalla richiesta."));
+                    }
 
-                    pecMapProcessedElements.put(PecUtils.generateRandomString(64), pecInfoAccettazione);
-                    pecMapProcessedElements.put(PecUtils.generateRandomString(64), pecInfoConsegna);
+                    PecInfo pecInfoAccettazione = new PecInfo().messageId(messageID).receiverAddress(receiverAddress).from(from).replyTo(replyTo).subject(subject).pecType(PecType.ACCETTAZIONE).errorCodes(errorMap);
+                    PecInfo pecInfoConsegna = new PecInfo().messageId(messageID).receiverAddress(receiverAddress).from(from).replyTo(replyTo).subject(subject).pecType(PecType.CONSEGNA).errorCodes(errorMap);
 
-                    sendMailResponse.setErrcode(0);
-                    sendMailResponse.setErrblock(0);
+                    String idInfoAccettazione = PecUtils.generateRandomString(64);
+                    String idInfoConsegna = PecUtils.generateRandomString(64);
+
+                    pecMapProcessedElements.put(idInfoAccettazione, pecInfoAccettazione);
+                    pecMapProcessedElements.put(idInfoConsegna, pecInfoConsegna);
+
+                    log.debug("Added pec with idInfoAccettazione: {} , idInfoConsegna: {}", idInfoAccettazione, idInfoConsegna);
                     sendMailResponse.setErrstr(messageID);
 
                     log.debug("---Email presenti nella mappa sendMail()---: {}", pecMapProcessedElements.size());
-                    return sendMailResponse;
+                    return Mono.just(sendMailResponse);
+                })
+                .onErrorResume(RequestedErrorException.class, throwable -> {
+                    sendMailResponse.setErrcode(throwable.getErrorCode());
+                    sendMailResponse.setErrstr(throwable.getErrorMsg());
+                    return Mono.just(sendMailResponse);
                 })
                 .transform(delayElement())
                 .doOnSuccess(result -> log.info(SUCCESSFUL_OPERATION, SEND_MAIL, result))
@@ -175,14 +188,15 @@ public class PecImapBridgeEndpoint {
         try {
             semaphore.acquire();
         } catch (InterruptedException e) {
-            log.error("Thread is waiting, sleeping, or otherwise occupied, and the thread is interrupted: {} - {}", e, e.getMessage());
+            log.error(THREAD_WAITING, e, e.getMessage());
             throw new SemaphoreException();
         }
 
         return Flux.fromIterable(pecMapProcessedElements.entrySet())
+                .filter(pecInfoEntry -> !pecInfoEntry.getValue().isRead())
                 .take(parameters.getLimit())
                 .map(pecInfoEntry -> {
-                    String messageID = pecInfoEntry.getKey();
+                    String messageID = insertMessageIdInBrackets(pecInfoEntry.getKey());
                     PecInfo pecInfo = pecInfoEntry.getValue();
                     log.info("MessageID : {}", messageID);
                     if (pecInfo.getPecType().equals(PecType.ACCETTAZIONE))
@@ -208,12 +222,15 @@ public class PecImapBridgeEndpoint {
         try {
             semaphore.acquire();
         } catch (InterruptedException e) {
-            log.error("Thread is waiting, sleeping, or otherwise occupied, and the thread is interrupted: {} - {}", e, e.getMessage());
+            log.error(THREAD_WAITING, e, e.getMessage());
             throw new SemaphoreException();
         }
 
+        String messageID = parameters.getMailid();
+        log.debug(INVOKING_OPERATION, GET_MESSAGE_ID, messageID);
+
         //obbligatorio not null
-        if (Objects.isNull(parameters.getMailid()) || parameters.getMailid().equals("")) {
+        if (Objects.isNull(messageID) || messageID.equals("")) {
             getMessageIDResponse.setErrcode(400);
             getMessageIDResponse.setErrstr("Il campo mailId deve essere valorizzato");
             return getMessageIDResponse;
@@ -231,31 +248,113 @@ public class PecImapBridgeEndpoint {
             return getMessageIDResponse;
         }
 
-        return Mono.just(parameters).map(sendMail -> {
-
-                    log.debug(INVOKING_OPERATION, GET_MESSAGE_ID, sendMail);
-                    String messageID = sendMail.getMailid();
-                    var pecInfo = pecMapProcessedElements.remove(messageID);
-                    log.debug("Removed pec with messageID '{}'", messageID);
-
-                    //se pecInfo è null diamo una response di errore
-                    if (Objects.isNull(pecInfo)) {
-                        getMessageIDResponse.setErrcode(404);
-                        getMessageIDResponse.setErrstr("Id del messaggio non trovato: " + messageID);
-                        getMessageIDResponse.setErrblock(0);
-                    } else {
-                        getMessageIDResponse.setErrcode(0);
-                        getMessageIDResponse.setErrstr("ok");
-                        getMessageIDResponse.setErrblock(0);
-                        if (pecInfo.getPecType().equals(PecType.ACCETTAZIONE))
-                            getMessageIDResponse.setMessage(generateMimeMessageAccettazione(pecInfo, parameters.getMailid()));
-                        else getMessageIDResponse.setMessage(generateMimeMessageConsegna(pecInfo, parameters.getMailid()));
-                    }
+        return Mono.justOrEmpty(pecMapProcessedElements.get(messageID))
+                .flatMap(pecInfo -> errorLookUp(ID, pecInfo))
+                .map(pecInfo ->
+                {
+                    getMessageIDResponse.setErrcode(0);
+                    getMessageIDResponse.setErrstr("ok");
+                    getMessageIDResponse.setErrblock(0);
+                    pecInfo.setRead(true);
+                    pecMapProcessedElements.put(messageID, pecInfo);
+                    if (pecInfo.getPecType().equals(PecType.ACCETTAZIONE))
+                        getMessageIDResponse.setMessage(generateMimeMessageAccettazione(pecInfo, parameters.getMailid()));
+                    else getMessageIDResponse.setMessage(generateMimeMessageConsegna(pecInfo, parameters.getMailid()));
                     return getMessageIDResponse;
+                })
+                //se pecInfo è null diamo una response di errore
+                .switchIfEmpty(Mono.defer(() -> {
+                    getMessageIDResponse.setErrcode(404);
+                    getMessageIDResponse.setErrstr("Id del messaggio non trovato: " + messageID);
+                    getMessageIDResponse.setErrblock(0);
+                    return Mono.just(getMessageIDResponse);
+                }))
+                .onErrorResume(RequestedErrorException.class, requestedErrorException -> {
+                    getMessageIDResponse.setErrcode(requestedErrorException.getErrorCode());
+                    getMessageIDResponse.setErrstr(requestedErrorException.getErrorMsg());
+                    getMessageIDResponse.setErrblock(0);
+                    return Mono.just(getMessageIDResponse);
                 })
                 .transform(delayElement())
                 .doOnSuccess(result -> log.info(SUCCESSFUL_OPERATION, GET_MESSAGE_ID, result))
                 .doOnError(throwable -> log.error(ENDING_PROCESS_WITH_ERROR, GET_MESSAGE_ID, throwable, throwable.getMessage()))
+                .doFinally(result -> semaphore.release())
+                .block();
+    }
+
+    @PayloadRoot(namespace = NAMESPACE_URI, localPart = "deleteMail")
+    @ResponsePayload
+    public DeleteMailResponse deleteMail(@RequestPayload DeleteMail parameters) {
+
+        DeleteMailResponse deleteMailResponse = new DeleteMailResponse();
+        try {
+            semaphore.acquire();
+        } catch (InterruptedException e) {
+            log.error(THREAD_WAITING, e, e.getMessage());
+            throw new SemaphoreException();
+        }
+
+        String messageID = parameters.getMailid();
+        log.debug(INVOKING_OPERATION, DELETE_MAIL, messageID);
+
+        if (Objects.isNull(messageID) || messageID.equals("")) {
+            deleteMailResponse.setErrcode(400);
+            deleteMailResponse.setErrstr("Il campo mailId deve essere valorizzato");
+            return deleteMailResponse;
+        }
+
+        return Mono.justOrEmpty(pecMapProcessedElements.get(messageID))
+                .flatMap(pecInfo -> errorLookUp(DM, pecInfo))
+                .map(unused -> {
+                    pecMapProcessedElements.remove(messageID);
+                    deleteMailResponse.setErrcode(0);
+                    deleteMailResponse.setErrstr("ok");
+                    deleteMailResponse.setErrblock(0);
+                    return deleteMailResponse;
+                })
+                .switchIfEmpty(Mono.defer(() ->
+                {
+                    deleteMailResponse.setErrcode(99);
+                    deleteMailResponse.setErrstr("Messaggio inesistente: " + parameters.getMailid());
+                    deleteMailResponse.setErrblock(0);
+                    return Mono.just(deleteMailResponse);
+                }))
+                .onErrorResume(RequestedErrorException.class, throwable -> {
+                    deleteMailResponse.setErrcode(throwable.getErrorCode());
+                    deleteMailResponse.setErrstr(throwable.getErrorMsg());
+                    deleteMailResponse.setErrblock(0);
+                    return Mono.just(deleteMailResponse);
+                })
+                .transform(delayElement())
+                .doOnSuccess(result -> log.info(SUCCESSFUL_OPERATION, DELETE_MAIL, result))
+                .doOnError(throwable -> log.error(ENDING_PROCESS_WITH_ERROR, DELETE_MAIL, throwable, throwable.getMessage()))
+                .doFinally(result -> semaphore.release())
+                .block();
+
+    }
+
+    @PayloadRoot(namespace = NAMESPACE_URI, localPart = "getMessageCount")
+    @ResponsePayload
+    public GetMessageCountResponse getMessageCount(@RequestPayload GetMessageCount parameters) {
+        GetMessageCountResponse getMessageCountResponse = new GetMessageCountResponse();
+        try {
+            semaphore.acquire();
+        } catch (InterruptedException e) {
+            log.error(THREAD_WAITING, e, e.getMessage());
+            throw new SemaphoreException();
+        }
+
+        return Mono.just(parameters)
+                .map(getMessageCount -> {
+                    getMessageCountResponse.setErrcode(0);
+                    getMessageCountResponse.setErrstr("ok");
+                    getMessageCountResponse.setErrblock(0);
+                    getMessageCountResponse.setCount(pecMapProcessedElements.size());
+                    return getMessageCountResponse;
+                })
+                .transform(delayElement())
+                .doOnSuccess(result -> log.info(SUCCESSFUL_OPERATION, MESSAGE_COUNT, result))
+                .doOnError(throwable -> log.error(ENDING_PROCESS_WITH_ERROR, MESSAGE_COUNT, throwable, throwable.getMessage()))
                 .doFinally(result -> semaphore.release())
                 .block();
     }

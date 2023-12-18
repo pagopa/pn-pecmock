@@ -204,4 +204,8 @@ public class PecUtils {
         return stringBufferText;
     }
 
+    public static String insertMessageIdInBrackets(String messageID) {
+        return String.format("%s%s%s", "<", messageID, ">");
+    }
+
 }
