@@ -1,7 +1,7 @@
 package it.pagopa.pn.pecmock.endpoint;
 
 import https.bridgews_pec_it.pecimapbridge.*;
-import it.pagopa.pn.pecmock.endpoint.PecImapBridgeEndpoint;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +10,7 @@ import org.springframework.test.annotation.DirtiesContext;
 
 @SpringBootTest
 @DirtiesContext( classMode= DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD )
+@Slf4j
 public class PecImapBridgeEndpointTest {
 
     @Autowired
@@ -20,7 +21,7 @@ public class PecImapBridgeEndpointTest {
     {
         //GIVEN
         SendMail sendMail=new SendMail();
-        sendMail.setData(getData());
+        sendMail.setData(getData(null));
 
         //WHEN
         SendMailResponse sendMailResponse = pecImapBridgeEndpoint.sendMail(sendMail);
@@ -31,9 +32,27 @@ public class PecImapBridgeEndpointTest {
     }
 
     @Test
+    void testSendMailWithError500()
+    {
+        //GIVEN
+        SendMail sendMail=new SendMail();
+        sendMail.setData(getData("subject ERR[SM_500] any other text"));
+
+        SendMailResponse sendMailResponse = pecImapBridgeEndpoint.sendMail(sendMail);
+
+        //THEN
+        Assertions.assertNotNull(sendMailResponse);
+        Assertions.assertNotNull(sendMailResponse.getErrstr());
+        log.info(sendMailResponse.getErrstr());
+        log.info(String.valueOf(sendMailResponse.getErrcode()));
+        Assertions.assertEquals(500, sendMailResponse.getErrcode());
+
+    }
+
+    @Test
     void getOneMessageOk() {
         SendMail sendMail = new SendMail();
-        sendMail.setData(getData());
+        sendMail.setData(getData(null));
         pecImapBridgeEndpoint.sendMail(sendMail);
 
         //GIVEN
@@ -54,10 +73,12 @@ public class PecImapBridgeEndpointTest {
         Assertions.assertEquals(1, getMessagesResponse.getArrayOfMessages().getItem().size());
     }
 
+
+
     @Test
     void getMoreMessagesOk() {
         SendMail sendMail = new SendMail();
-        sendMail.setData(getData());
+        sendMail.setData(getData(null));
         pecImapBridgeEndpoint.sendMail(sendMail);
 
         //GIVEN
@@ -98,8 +119,74 @@ public class PecImapBridgeEndpointTest {
         Assertions.assertNull(getMessagesResponse.getArrayOfMessages());
     }
 
-    private String getData() {
-        return """
+    @Test
+    void testMessageCount() {
+        for (int i = 0; i<=1; i++){
+            SendMail sendMail = new SendMail();
+            sendMail.setData(getData(null));
+            pecImapBridgeEndpoint.sendMail(sendMail);
+        }
+
+        //WHEN
+        GetMessageCountResponse getMessageCountResponse = pecImapBridgeEndpoint.getMessageCount(new GetMessageCount());
+
+        //THEN
+        Assertions.assertNotNull(getMessageCountResponse);
+        Assertions.assertNotNull(getMessageCountResponse.getCount());
+        Assertions.assertEquals(4, getMessageCountResponse.getCount());
+
+
+    }
+
+    @Test
+    void testDeleteMessageOk(){
+        SendMail sendMail = new SendMail();
+        sendMail.setData(getData(null));
+        pecImapBridgeEndpoint.sendMail(sendMail);
+
+        String messageId = pecImapBridgeEndpoint.getPecMapProcessedElements().keySet().iterator().next();
+        Assertions.assertEquals(2, pecImapBridgeEndpoint.getPecMapProcessedElements().size());
+
+        pecImapBridgeEndpoint.deleteMail(new DeleteMail(){{
+            setMailid(messageId);
+            setIsuid(2);
+        }});
+
+        Assertions.assertEquals(1, pecImapBridgeEndpoint.getPecMapProcessedElements().size());
+    }
+
+    @Test
+    void testDeleteMessageWithError500(){
+        SendMail sendMail = new SendMail();
+        sendMail.setData(getData("ERR[DM_500]"));
+        pecImapBridgeEndpoint.sendMail(sendMail);
+
+        String messageId = pecImapBridgeEndpoint.getPecMapProcessedElements().keySet().iterator().next();
+        Assertions.assertEquals(2, pecImapBridgeEndpoint.getPecMapProcessedElements().size());
+
+        DeleteMailResponse response =  pecImapBridgeEndpoint.deleteMail(new DeleteMail(){{
+            setMailid(messageId);
+            setIsuid(2);
+        }});
+
+        Assertions.assertEquals( 500, response.getErrcode());
+    }
+
+    @Test
+    void testDeleteMessageKo(){
+      DeleteMailResponse response =  pecImapBridgeEndpoint.deleteMail(new DeleteMail(){{
+            setMailid("messageId");
+            setIsuid(2);
+        }});
+
+       Assertions.assertEquals(response.getErrcode(), 99);
+    }
+
+    private String getData(String subjectString) {
+        String defaultSubjectString = "Messaggio di test";
+        
+      
+        String data = """
                 <![CDATA[
                 Message-ID: messageID
                 Date: Sun, 3 Mar 2019 10:56:05 +0100
@@ -107,7 +194,7 @@ public class PecImapBridgeEndpointTest {
                 MIME-Version: 1.0
                 To:standard3@postacert.pre.demoaruba.com
                 Cc:standard2@postacert.pre.demoaruba.com
-                Subject: Messaggio di test
+                Subject: %s
                 Content-Type: multipart/alternative;
                 boundary="------------060001050801050801010200"
                 This is a multi-part message in MIME format.
@@ -124,6 +211,10 @@ public class PecImapBridgeEndpointTest {
                  </head><body bgcolor="#FFFFFF" text="#000000"><p>Test</p></body></html>
                 --------------060001050801050801010200--
                  ]]>""";
+        
+        return data.formatted(subjectString != null ? subjectString : defaultSubjectString);
     }
+
+
 
 }

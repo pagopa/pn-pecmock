@@ -16,5 +16,8 @@ public class LogUtils {
     public static String SIGN_PDF_DOCUMENT = "signPdfDocument()";
     public static String PKCS7_SIGNATURE = "pkcs7Signature()";
     public static String SIGN_DOCUMENT = "signDocument()";
+    public static String DELETE_MAIL = "deleteMail()";
+    public static String THREAD_WAITING= "Thread is waiting, sleeping, or otherwise occupied, and the thread is interrupted: {} - {}";
+    public static String MESSAGE_COUNT = "getMessageCount()";
     public static String ARG = " - {}";
 }
