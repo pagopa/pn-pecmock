@@ -1,7 +1,6 @@
 package it.pagopa.pn.pecmock.test.endpoint;
 
 import it.arubapec.arubasignservice.*;
-import it.pagopa.pn.pecmock.endpoint.PecImapBridgeEndpoint;
 import it.pagopa.pn.pecmock.endpoint.SignServiceEndpoint;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -29,7 +28,7 @@ public class SignServiceEndpointTest {
         PdfsignatureV2 pdfsignatureV2 = new PdfsignatureV2();
         pdfsignatureV2.setSignRequestV2(signRequestV2);
 
-        SignReturnV2 signReturnV2 = signServiceEndpoint.signPdfDocument(pdfsignatureV2).getValue();
+        SignReturnV2 signReturnV2 = signServiceEndpoint.signPdfDocument(pdfsignatureV2).getValue().getReturn();
         Assertions.assertEquals(signRequestV2.getBinaryinput(), signReturnV2.getBinaryoutput());
     }
 
@@ -39,7 +38,7 @@ public class SignServiceEndpointTest {
         Xmlsignature xmlsignature = new Xmlsignature();
         xmlsignature.setSignRequestV2(signRequestV2);
 
-        SignReturnV2 signReturnV2 = signServiceEndpoint.signXmlDocument(xmlsignature).getValue();
+        SignReturnV2 signReturnV2 = signServiceEndpoint.signXmlDocument(xmlsignature).getValue().getReturn();
         Assertions.assertEquals(signRequestV2.getBinaryinput(), signReturnV2.getBinaryoutput());
     }
 
@@ -49,7 +48,7 @@ public class SignServiceEndpointTest {
         Pkcs7SignV2 pkcs7SignV2 = new Pkcs7SignV2();
         pkcs7SignV2.setSignRequestV2(signRequestV2);
 
-        SignReturnV2 signReturnV2 = signServiceEndpoint.pkcs7Signature(pkcs7SignV2).getValue();
+        SignReturnV2 signReturnV2 = signServiceEndpoint.pkcs7Signature(pkcs7SignV2).getValue().getReturn();
         Assertions.assertEquals(signRequestV2.getBinaryinput(), signReturnV2.getBinaryoutput());
     }
 

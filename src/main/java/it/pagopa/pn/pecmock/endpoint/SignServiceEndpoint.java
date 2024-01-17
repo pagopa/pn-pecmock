@@ -12,7 +12,6 @@ import org.springframework.ws.server.endpoint.annotation.RequestPayload;
 import org.springframework.ws.server.endpoint.annotation.ResponsePayload;
 import reactor.core.publisher.Mono;
 import javax.xml.namespace.QName;
-import java.time.Duration;
 import java.util.concurrent.Semaphore;
 import java.util.function.Function;
 
@@ -30,7 +29,9 @@ public class SignServiceEndpoint {
     private final int timestampingDuration;
     private final int minDelay;
     private final int maxDelay;
-    private final String SIGN_RETURN_V2_QNAME = "signReturnV2";
+    private final String XML_SIGNATURE_QNAME = "xmlsignature";
+    private final String PDF_SIGNATURE_V2_QNAME = "pdfsignatureV2";
+    private final String PKCS7_SIGN_V2_QNAME = "pkcs7signV2";
 
     @Autowired
     public SignServiceEndpoint(SignServiceConfigurationProperties signServiceConfigurationProperties) {
@@ -44,9 +45,9 @@ public class SignServiceEndpoint {
         this.semaphore = new Semaphore(mockPecSemaphore);
     }
 
-    @PayloadRoot(namespace = NAMESPACE_URI, localPart = "xmlsignature")
+    @PayloadRoot(namespace = NAMESPACE_URI, localPart = XML_SIGNATURE_QNAME)
     @ResponsePayload
-    public JAXBElement<SignReturnV2> signXmlDocument(@RequestPayload Xmlsignature xmlsignature) {
+    public JAXBElement<XmlsignatureResponse> signXmlDocument(@RequestPayload Xmlsignature xmlsignature) {
 
         log.debug(INVOKING_OPERATION, SIGN_XML_DOCUMENT, xmlsignature);
 
@@ -61,14 +62,20 @@ public class SignServiceEndpoint {
 
         return Mono.just(signRequestV2)
                 .transform(signDocument(signRequestV2.getBinaryinput().length, signRequestV2.isRequiredmark()))
+                .map(signReturnV2 -> {
+                    var response = new XmlsignatureResponse();
+                    response.setReturn(signReturnV2);
+                    return response;
+                })
+                .map(xmlsignatureResponse -> new JAXBElement<>(QName.valueOf(XML_SIGNATURE_QNAME), XmlsignatureResponse.class, xmlsignatureResponse))
                 .doOnSuccess(result -> log.info(SUCCESSFUL_OPERATION, SIGN_XML_DOCUMENT, result))
                 .block();
 
     }
 
-    @PayloadRoot(namespace = NAMESPACE_URI, localPart = "pdfsignatureV2")
+    @PayloadRoot(namespace = NAMESPACE_URI, localPart = PDF_SIGNATURE_V2_QNAME)
     @ResponsePayload
-    public JAXBElement<SignReturnV2> signPdfDocument(@RequestPayload PdfsignatureV2 pdfsignatureV2) {
+    public JAXBElement<PdfsignatureV2Response> signPdfDocument(@RequestPayload PdfsignatureV2 pdfsignatureV2) {
 
         log.debug(INVOKING_OPERATION, SIGN_PDF_DOCUMENT, pdfsignatureV2);
 
@@ -83,14 +90,20 @@ public class SignServiceEndpoint {
 
         return Mono.just(signRequestV2)
                 .transform(signDocument(signRequestV2.getBinaryinput().length, signRequestV2.isRequiredmark()))
+                .map(signReturnV2 -> {
+                    var response = new PdfsignatureV2Response();
+                    response.setReturn(signReturnV2);
+                    return response;
+                })
+                .map(pdfsignatureV2Response -> new JAXBElement<>(QName.valueOf(PDF_SIGNATURE_V2_QNAME), PdfsignatureV2Response.class, pdfsignatureV2Response))
                 .doOnSuccess(result -> log.info(SUCCESSFUL_OPERATION, SIGN_PDF_DOCUMENT, result))
                 .block();
 
     }
 
-    @PayloadRoot(namespace = NAMESPACE_URI, localPart = "pkcs7signV2")
+    @PayloadRoot(namespace = NAMESPACE_URI, localPart = PKCS7_SIGN_V2_QNAME)
     @ResponsePayload
-    public JAXBElement<SignReturnV2> pkcs7Signature(@RequestPayload Pkcs7SignV2 pkcs7SignV2) {
+    public JAXBElement<Pkcs7SignV2Response> pkcs7Signature(@RequestPayload Pkcs7SignV2 pkcs7SignV2) {
 
         log.debug(INVOKING_OPERATION, PKCS7_SIGNATURE, pkcs7SignV2);
 
@@ -105,12 +118,18 @@ public class SignServiceEndpoint {
 
         return Mono.just(signRequestV2)
                 .transform(signDocument(signRequestV2.getBinaryinput().length, signRequestV2.isRequiredmark()))
+                .map(signReturnV2 -> {
+                    var response = new Pkcs7SignV2Response();
+                    response.setReturn(signReturnV2);
+                    return response;
+                })
+                .map(pkcs7SignV2Response -> new JAXBElement<>(QName.valueOf(PKCS7_SIGN_V2_QNAME), Pkcs7SignV2Response.class, pkcs7SignV2Response))
                 .doOnSuccess(result -> log.info(SUCCESSFUL_OPERATION, PKCS7_SIGNATURE, result))
                 .block();
 
     }
 
-    Function<Mono<SignRequestV2>, Mono<JAXBElement<SignReturnV2>>> signDocument(int fileSize, boolean isRequiredmark) {
+    Function<Mono<SignRequestV2>, Mono<SignReturnV2>> signDocument(int fileSize, boolean isRequiredmark) {
         log.debug(INVOKING_OPERATION + ARG, SIGN_DOCUMENT, fileSize, isRequiredmark);
         return signRequest -> signRequest.map(signRequestV2 -> {
                     SignReturnV2 signReturnV2 = new SignReturnV2();
@@ -126,7 +145,6 @@ public class SignServiceEndpoint {
                     signReturnV2.setDescription("Generic error.");
                     return Mono.just(signReturnV2);
                 })
-                .map(signReturnV2 -> new JAXBElement<>(QName.valueOf(SIGN_RETURN_V2_QNAME), SignReturnV2.class, signReturnV2))
                 .transform(delayElement(fileSize, isRequiredmark))
                 .doOnSuccess(result -> log.debug(SUCCESSFUL_OPERATION, SIGN_DOCUMENT, result))
                 .doOnError(throwable -> log.error(ENDING_PROCESS_WITH_ERROR, SIGN_DOCUMENT, throwable, throwable.getMessage()))
