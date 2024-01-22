@@ -12,7 +12,7 @@
     <types>
         <xsd:schema elementFormDefault="qualified">
             <xsd:import namespace="http://arubasignservice.arubapec.it/"
-                        schemaLocation="ArubaSignService.xsd"/>
+                        schemaLocation="./ArubaSignService.xsd"/>
         </xsd:schema>
     </types>
     <message name="tsd">
@@ -816,7 +816,7 @@
     </binding>
     <service name="ArubaSignServiceService">
         <port name="ArubaSignServicePort" binding="tns:ArubaSignServicePortBinding">
-            <soap:address location="https://asbr-pagopa.arubapec.it:443/ArubaSignService/ArubaSignService"/>
+            <soap:address location="http://localhost:8083/SignService/SignService"/>
         </port>
     </service>
 </definitions>

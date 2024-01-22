@@ -2,6 +2,7 @@ package it.pagopa.pn.pecmock.endpoint;
 
 import it.arubapec.arubasignservice.*;
 import it.pagopa.pn.pecmock.configuration.SignServiceConfigurationProperties;
+import it.pagopa.pn.pecmock.exception.DataReadException;
 import it.pagopa.pn.pecmock.exception.SemaphoreException;
 import jakarta.xml.bind.JAXBElement;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,8 @@ import org.springframework.ws.server.endpoint.annotation.RequestPayload;
 import org.springframework.ws.server.endpoint.annotation.ResponsePayload;
 import reactor.core.publisher.Mono;
 import javax.xml.namespace.QName;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.concurrent.Semaphore;
 import java.util.function.Function;
 
@@ -23,19 +26,18 @@ import static it.pagopa.pn.pecmock.utils.PecUtils.getRandomNumberBetweenMinMax;
 public class SignServiceEndpoint {
     private static final String NAMESPACE_URI = "http://arubasignservice.arubapec.it/";
     private Semaphore semaphore = null;
-    private int mockPecSemaphore;
     private final int signDuration;
     private final int hashingDuration;
     private final int timestampingDuration;
     private final int minDelay;
     private final int maxDelay;
-    private final String XML_SIGNATURE_QNAME = "xmlsignature";
-    private final String PDF_SIGNATURE_V2_QNAME = "pdfsignatureV2";
-    private final String PKCS7_SIGN_V2_QNAME = "pkcs7signV2";
+    private final QName XML_SIGNATURE_RESPONSE_QNAME = new QName(NAMESPACE_URI, "xmlsignatureResponse");
+    private final QName PDF_SIGNATURE_RESPONSE_V2_QNAME = new QName(NAMESPACE_URI, "pdfsignatureV2Response");
+    private final QName PKCS7_SIGN_RESPONSE_V2_QNAME = new QName(NAMESPACE_URI, "pkcs7signV2Response");
 
     @Autowired
     public SignServiceEndpoint(SignServiceConfigurationProperties signServiceConfigurationProperties) {
-        this.mockPecSemaphore = signServiceConfigurationProperties.semaphores();
+        int mockPecSemaphore = signServiceConfigurationProperties.semaphores();
         log.debug("SignServiceEndpoint() - {}", mockPecSemaphore);
         this.minDelay = signServiceConfigurationProperties.minDelay();
         this.maxDelay = signServiceConfigurationProperties.maxDelay();
@@ -45,11 +47,11 @@ public class SignServiceEndpoint {
         this.semaphore = new Semaphore(mockPecSemaphore);
     }
 
-    @PayloadRoot(namespace = NAMESPACE_URI, localPart = XML_SIGNATURE_QNAME)
+    @PayloadRoot(namespace = NAMESPACE_URI, localPart = "xmlsignature")
     @ResponsePayload
-    public JAXBElement<XmlsignatureResponse> signXmlDocument(@RequestPayload Xmlsignature xmlsignature) {
+    public JAXBElement<XmlsignatureResponse> signXmlDocument(@RequestPayload JAXBElement<Xmlsignature> xmlsignature) {
 
-        log.debug(INVOKING_OPERATION, SIGN_XML_DOCUMENT, xmlsignature);
+        log.debug(INVOKING_OPERATION, SIGN_XML_DOCUMENT, xmlsignature.getValue());
 
         try {
             semaphore.acquire();
@@ -58,26 +60,33 @@ public class SignServiceEndpoint {
             throw new SemaphoreException();
         }
 
-        var signRequestV2 = xmlsignature.getSignRequestV2();
-
-        return Mono.just(signRequestV2)
-                .transform(signDocument(signRequestV2.getBinaryinput().length, signRequestV2.isRequiredmark()))
+        return Mono.just(xmlsignature.getValue().getSignRequestV2())
+                .map(signRequestV2 -> {
+                    try {
+                        byte[] fileBytes = signRequestV2.getStream().getInputStream().readAllBytes();
+                        signRequestV2.setBinaryinput(fileBytes);
+                        return signRequestV2;
+                    } catch (IOException e) {
+                        throw new DataReadException(e.getMessage());
+                    }
+                })
+                .flatMap(signRequestV2 -> Mono.defer(() -> signDocument(signRequestV2.getBinaryinput(), signRequestV2.isRequiredmark())))
                 .map(signReturnV2 -> {
                     var response = new XmlsignatureResponse();
                     response.setReturn(signReturnV2);
                     return response;
                 })
-                .map(xmlsignatureResponse -> new JAXBElement<>(QName.valueOf(XML_SIGNATURE_QNAME), XmlsignatureResponse.class, xmlsignatureResponse))
+                .map(xmlsignatureResponse -> new JAXBElement<>(XML_SIGNATURE_RESPONSE_QNAME, XmlsignatureResponse.class, xmlsignatureResponse))
+                .doOnError(throwable -> log.error(ENDING_PROCESS_WITH_ERROR, SIGN_XML_DOCUMENT, throwable, throwable.getMessage()))
                 .doOnSuccess(result -> log.info(SUCCESSFUL_OPERATION, SIGN_XML_DOCUMENT, result))
                 .block();
-
     }
 
-    @PayloadRoot(namespace = NAMESPACE_URI, localPart = PDF_SIGNATURE_V2_QNAME)
+    @PayloadRoot(namespace = NAMESPACE_URI, localPart = "pdfsignatureV2")
     @ResponsePayload
-    public JAXBElement<PdfsignatureV2Response> signPdfDocument(@RequestPayload PdfsignatureV2 pdfsignatureV2) {
+    public JAXBElement<PdfsignatureV2Response> signPdfDocument(@RequestPayload JAXBElement<PdfsignatureV2> pdfsignatureV2) {
 
-        log.debug(INVOKING_OPERATION, SIGN_PDF_DOCUMENT, pdfsignatureV2);
+        log.debug(INVOKING_OPERATION, SIGN_PDF_DOCUMENT, pdfsignatureV2.getValue());
 
         try {
             semaphore.acquire();
@@ -86,26 +95,25 @@ public class SignServiceEndpoint {
             throw new SemaphoreException();
         }
 
-        var signRequestV2 = pdfsignatureV2.getSignRequestV2();
-
-        return Mono.just(signRequestV2)
-                .transform(signDocument(signRequestV2.getBinaryinput().length, signRequestV2.isRequiredmark()))
+        return Mono.just(pdfsignatureV2.getValue().getSignRequestV2())
+                .flatMap(signRequestV2 -> Mono.defer(() -> signDocument(signRequestV2.getBinaryinput(), signRequestV2.isRequiredmark())))
                 .map(signReturnV2 -> {
                     var response = new PdfsignatureV2Response();
                     response.setReturn(signReturnV2);
                     return response;
                 })
-                .map(pdfsignatureV2Response -> new JAXBElement<>(QName.valueOf(PDF_SIGNATURE_V2_QNAME), PdfsignatureV2Response.class, pdfsignatureV2Response))
+                .map(pdfsignatureV2Response -> new JAXBElement<>(PDF_SIGNATURE_RESPONSE_V2_QNAME, PdfsignatureV2Response.class, pdfsignatureV2Response))
+                .doOnError(throwable -> log.error(ENDING_PROCESS_WITH_ERROR, SIGN_PDF_DOCUMENT, throwable, throwable.getMessage()))
                 .doOnSuccess(result -> log.info(SUCCESSFUL_OPERATION, SIGN_PDF_DOCUMENT, result))
                 .block();
 
     }
 
-    @PayloadRoot(namespace = NAMESPACE_URI, localPart = PKCS7_SIGN_V2_QNAME)
+    @PayloadRoot(namespace = NAMESPACE_URI, localPart = "pkcs7signV2")
     @ResponsePayload
-    public JAXBElement<Pkcs7SignV2Response> pkcs7Signature(@RequestPayload Pkcs7SignV2 pkcs7SignV2) {
+    public JAXBElement<Pkcs7SignV2Response> pkcs7Signature(@RequestPayload JAXBElement<Pkcs7SignV2> pkcs7SignV2) {
 
-        log.debug(INVOKING_OPERATION, PKCS7_SIGNATURE, pkcs7SignV2);
+        log.debug(INVOKING_OPERATION, PKCS7_SIGNATURE, pkcs7SignV2.getValue());
 
         try {
             semaphore.acquire();
@@ -114,27 +122,25 @@ public class SignServiceEndpoint {
             throw new SemaphoreException();
         }
 
-        var signRequestV2 = pkcs7SignV2.getSignRequestV2();
-
-        return Mono.just(signRequestV2)
-                .transform(signDocument(signRequestV2.getBinaryinput().length, signRequestV2.isRequiredmark()))
+        return Mono.just(pkcs7SignV2.getValue().getSignRequestV2())
+                .flatMap(signRequestV2 -> signDocument(signRequestV2.getBinaryinput(), signRequestV2.isRequiredmark()))
                 .map(signReturnV2 -> {
                     var response = new Pkcs7SignV2Response();
                     response.setReturn(signReturnV2);
                     return response;
                 })
-                .map(pkcs7SignV2Response -> new JAXBElement<>(QName.valueOf(PKCS7_SIGN_V2_QNAME), Pkcs7SignV2Response.class, pkcs7SignV2Response))
+                .map(pkcs7SignV2Response -> new JAXBElement<>(PKCS7_SIGN_RESPONSE_V2_QNAME, Pkcs7SignV2Response.class, pkcs7SignV2Response))
+                .doOnError(throwable -> log.error(ENDING_PROCESS_WITH_ERROR, PKCS7_SIGNATURE, throwable, throwable.getMessage()))
                 .doOnSuccess(result -> log.info(SUCCESSFUL_OPERATION, PKCS7_SIGNATURE, result))
                 .block();
 
     }
 
-    Function<Mono<SignRequestV2>, Mono<SignReturnV2>> signDocument(int fileSize, boolean isRequiredmark) {
-        log.debug(INVOKING_OPERATION + ARG, SIGN_DOCUMENT, fileSize, isRequiredmark);
-        return signRequest -> signRequest.map(signRequestV2 -> {
+    private Mono<SignReturnV2> signDocument(byte[] binaryInput, boolean isRequiredmark) {
+        return Mono.fromSupplier(() -> {
                     SignReturnV2 signReturnV2 = new SignReturnV2();
                     signReturnV2.setStatus("OK");
-                    signReturnV2.setBinaryoutput(signRequestV2.getBinaryinput());
+                    signReturnV2.setBinaryoutput(binaryInput);
                     return signReturnV2;
                 })
                 .onErrorResume(throwable -> {
@@ -145,7 +151,7 @@ public class SignServiceEndpoint {
                     signReturnV2.setDescription("Generic error.");
                     return Mono.just(signReturnV2);
                 })
-                .transform(delayElement(fileSize, isRequiredmark))
+                .transform(delayElement(binaryInput.length, isRequiredmark))
                 .doOnSuccess(result -> log.debug(SUCCESSFUL_OPERATION, SIGN_DOCUMENT, result))
                 .doOnError(throwable -> log.error(ENDING_PROCESS_WITH_ERROR, SIGN_DOCUMENT, throwable, throwable.getMessage()))
                 .doFinally(result -> semaphore.release());
