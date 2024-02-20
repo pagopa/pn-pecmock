@@ -26,11 +26,12 @@ public class SignServiceConfiguration extends WsConfigurerAdapter {
     public ServletRegistrationBean<MessageDispatcherServlet> messageDispatcherServlet(ApplicationContext applicationContext) {
         MessageDispatcherServlet servlet = new MessageDispatcherServlet();
         servlet.setApplicationContext(applicationContext);
+        servlet.setMessageReceiverBeanName("signServiceMessageReceiver");
         servlet.setTransformWsdlLocations(true);
         return new ServletRegistrationBean<>(servlet, "/SignService/*");
     }
 
-    @Bean
+    @Bean("signServiceMessageReceiver")
     public SoapMessageDispatcher messageReceiver(DefaultMethodEndpointAdapter customMethodEndpointAdapter) {
         SoapMessageDispatcher messageDispatcher = new SoapMessageDispatcher();
         messageDispatcher.setEndpointAdapters(List.of(customMethodEndpointAdapter));
