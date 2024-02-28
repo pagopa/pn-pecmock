@@ -125,7 +125,7 @@ public class PecUtils {
         //Costruzione del daticert
         StringBuffer stringBufferContent = new StringBuffer();
         stringBufferContent.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");//popolare con daticert su note
-        stringBufferContent.append("<postacert tipo=\"consegna\" errore=\"nessuno\">");
+        stringBufferContent.append("<postacert tipo=\"accettazione\" errore=\"nessuno\">");
         stringBufferContent.append("<intestazione>");
         stringBufferContent.append("<mittente>").append(from).append("</mittente>"); //mittente dell'email, sta nella mappa
         stringBufferContent.append("<destinatari tipo=\"certificato\">").append(receiver).append("</destinatari>"); //destinatario dell'email, sta nella mappa
@@ -139,7 +139,7 @@ public class PecUtils {
         stringBufferContent.append("<ora>").append(orario).append("</ora>"); //impostare in base all'ora
         stringBufferContent.append("</data>");
         stringBufferContent.append("<identificativo>").append(generateRandomString(64)).append("</identificativo>"); //stringa random 64 caratteri
-        stringBufferContent.append("<msgid>").append(URLEncoder.encode(messageId, StandardCharsets.UTF_8)).append("</msgid>"); //msgid della mappa, nella forma url encoded. fare url encode della stringa
+        stringBufferContent.append("<msgid>").append("&lt;").append(messageId).append("&gt;").append("</msgid>"); //msgid della mappa, nella forma url encoded. fare url encode della stringa
         stringBufferContent.append("</dati>");
         stringBufferContent.append("</postacert>");
 
@@ -164,7 +164,7 @@ public class PecUtils {
         stringBufferContent.append("<ora>").append(orario).append("</ora>"); //impostare in base all'ora
         stringBufferContent.append("</data>");
         stringBufferContent.append("<identificativo>").append(generateRandomString(64)).append("</identificativo>"); //stringa random 64 caratteri
-        stringBufferContent.append("<msgid>").append(URLEncoder.encode(messageId, StandardCharsets.UTF_8)).append("</msgid>"); //msgid della mappa, nella forma url encoded. fare url encode della stringa
+        stringBufferContent.append("<msgid>").append("&lt;").append(messageId).append("&gt;").append("</msgid>"); //msgid della mappa, nella forma url encoded. fare url encode della stringa
         stringBufferContent.append("<ricevuta tipo=\"completa\" />");
         stringBufferContent.append("<consegna>").append(receiver).append("</consegna>");
         stringBufferContent.append("</dati>");
